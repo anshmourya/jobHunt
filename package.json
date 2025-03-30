@@ -15,6 +15,7 @@
   "devDependencies": {
     "@types/express": "^5.0.1",
     "@types/node": "^22.13.14",
+    "@types/node-schedule": "^2.1.7",
     "@types/node-telegram-bot-api": "^0.64.8",
     "typescript": "^5.8.2"
   },
@@ -22,9 +23,13 @@
     "@types/intl-tel-input": "^18.1.4",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "google-auth-library": "^9.15.1",
+    "google-spreadsheet": "^4.1.4",
     "input": "^1.0.1",
     "job-hunt": "file:",
+    "node-schedule": "^2.1.1",
     "node-telegram-bot-api": "^0.66.0",
+    "openai": "^4.90.0",
     "telegram": "^2.26.22",
     "telegram-mtproto": "^2.2.2"
   }

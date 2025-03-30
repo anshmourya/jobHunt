@@ -2,12 +2,14 @@ import { TelegramClient, Api } from "telegram";
 import { StringSession } from "telegram/sessions";
 import input from "input";
 import dotenv from "dotenv";
-
+import { parseJobPosting } from "./config/openai";
+import { addJobToSheet } from "./config/spreedSheet";
 // Load environment variables
 dotenv.config();
 
 const channelIds = [1918258764];
-
+const keywordRegex =
+  /hiring|apply|salary|lpa|internship|job|position|experience/i;
 // Your Telegram API credentials
 const apiId = Number(process.env.API_ID);
 
@@ -17,9 +19,7 @@ const apiHash = process.env.API_HASH as string;
 const phoneNumber = process.env.PHONE_NUMBER as string;
 
 // Store session as a string (empty for first login)
-const stringSession = new StringSession(
-  "1BQANOTEuMTA4LjU2LjEzOAG7fPlzmHjSfvaHioII7Lzf8XT6FHvr6y1mN2XzhVqeTRYNC2X2sAoltwxmCnStVHvQv5cI9WMFa+Fe52VMAfSua0zBqCxgORojs0LsmvdeE8s0Pd+m8ucc6Q10At/1EU9YZsIPDl05UmWed1qdvadWARuP6OBCsy6I6mevtALS2I4V5yS+Dc+t7XA9swaFp04RcjNU3MAGhRGANkbKIDrdJe6c6vakpUSUARFpeCJ+PhV/qD36+tiazY+E1rHQWvn9sjfsLQbXRA59PAwkGXD9jvnyH+uQJHEHPuqs/B631KF1I8Gv0EFy641SW5tQgYvYSumRwsSNE9miMBSDNuTHjw=="
-);
+const stringSession = new StringSession(process.env.TELEGRAM_SESSION);
 
 const connection = () =>
   new TelegramClient(stringSession, apiId, apiHash, {
@@ -178,6 +178,7 @@ const getMessages = async () => {
 //get unread message
 const getUnreadMessages = async (channelUsernames: string[]) => {
   try {
+    console.time("process");
     // Create the client
     const client = await connection();
 
@@ -194,36 +195,131 @@ const getUnreadMessages = async (channelUsernames: string[]) => {
     // First get all dialogs to find unread counts
     const dialogs = await client.getDialogs();
 
+    // Array to store all job postings
+    const jobPostings: any[] = [];
+
     for (const username of channelUsernames) {
-      // Find the dialog that matches this username
-      const dialog = dialogs.find(
-        (d) =>
-          d.entity &&
-          "username" in d.entity &&
-          d.entity.username === username.replace("@", "")
-      );
+      try {
+        // Find the dialog that matches this username
+        const dialog = dialogs.find(
+          (d) =>
+            d.entity &&
+            "username" in d.entity &&
+            d.entity.username === username.replace("@", "")
+        );
 
-      console.log(dialog?.unreadCount);
+        console.log(`Unread count for ${username}:`, dialog?.unreadCount);
 
-      if (dialog && dialog.unreadCount > 0) {
-        console.log(`${username} has ${dialog.unreadCount} unread messages`);
+        if (dialog && dialog.unreadCount > 0) {
+          console.log(`${username} has ${dialog.unreadCount} unread messages`);
 
-        // Get only the unread messages
-        const messages = await client.getMessages(dialog.inputEntity, {
-          limit: dialog.unreadCount,
-        });
+          // Get only the unread messages
+          const messages = await client.getMessages(dialog.inputEntity, {
+            limit: dialog.unreadCount,
+          });
 
-        console.log(`Unread messages from ${username}:`, messages);
-      } else {
-        console.log(`No unread messages for ${username}`);
+          console.log(`Retrieved ${messages.length} messages from ${username}`);
+
+          // Filter messages that contain job-related keywords
+          const jobRelatedMessages = messages.filter((msg) => {
+            const messageText = msg?.message;
+            return messageText && keywordRegex.test(messageText);
+          });
+
+          console.log(
+            `Found ${jobRelatedMessages.length} job-related messages from ${username}`
+          );
+
+          // Process messages in batches to avoid rate limiting
+          const BATCH_SIZE = 5;
+          for (let i = 0; i < jobRelatedMessages.length; i += BATCH_SIZE) {
+            const batch = jobRelatedMessages.slice(i, i + BATCH_SIZE);
+            let count = 0;
+            // Process each message in the batch concurrently
+            const batchResults = await Promise.all(
+              batch.map(async (msg) => {
+                try {
+                  count++;
+                  console.log(
+                    `Processing message ${count} of ${BATCH_SIZE} in batch`
+                  );
+                  const jobData = await parseJobPosting(msg.message);
+                  if (jobData) {
+                    // Add source information
+                    return {
+                      ...jobData,
+                      source: username,
+                      messageId: msg.id,
+                      messageDate: new Date(msg.date * 1000).toISOString(),
+                    };
+                  }
+                  return null;
+                } catch (error) {
+                  console.error(`Error parsing message ${msg.id}:`, error);
+                  return null;
+                }
+              })
+            );
+
+            // Add valid job postings to our collection
+            const validJobs = batchResults.filter((job) => job !== null);
+            console.log(
+              `Adding ${validJobs.length} valid job postings from batch`
+            );
+            jobPostings.push(...validJobs);
+
+            console.log(
+              `Processed batch: Found ${validJobs.length} valid job postings`
+            );
+          }
+
+          // Mark messages as read after processing
+          if (messages.length > 0) {
+            try {
+              await client.markAsRead(dialog.inputEntity);
+              console.log(
+                `Marked ${messages.length} messages as read for ${username}`
+              );
+            } catch (readError) {
+              console.error(
+                `Error marking messages as read for ${username}:`,
+                readError
+              );
+            }
+          }
+        } else {
+          console.log(`No unread messages for ${username}`);
+        }
+      } catch (channelError) {
+        console.error(`Error processing channel ${username}:`, channelError);
+        // Continue with other channels even if one fails
       }
     }
+
+    // Output all job postings as JSON
+    if (jobPostings.length > 0) {
+      console.log("\n=== PARSED JOB POSTINGS ===");
+      console.log(`Total job postings found: ${jobPostings.length}`);
+
+      // Save all job postings to Google Sheets at once
+      const saved = await addJobToSheet(jobPostings);
+      if (saved) {
+        console.log(
+          `Successfully saved ${jobPostings.length} job postings to Google Sheets`
+        );
+      } else {
+        console.log("Failed to save job postings to Google Sheets");
+      }
+    } else {
+      console.log("No job postings found in unread messages");
+    }
+
+    console.timeEnd("process");
+    return jobPostings;
   } catch (error) {
-    console.log("Error:", error);
+    console.error("Error in getUnreadMessages:", error);
+    return [];
   }
 };
 
-getUnreadMessages(["TechUprise_Updates"]);
-// getMessages();
-
-export { connect };
+export { connect, getUnreadMessages, getMessages };
