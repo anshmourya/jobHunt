@@ -1,8 +1,6 @@
-import OpenAI from "openai";
-
-const client = new OpenAI({
-  baseURL: "https://api.deepseek.com",
-  apiKey: process.env.DEEPSEEK_API_KEY,
+import { Ollama } from "ollama";
+const client = new Ollama({
+  host: "localhost",
 });
 
 const system_prompt = `
@@ -52,24 +50,20 @@ Only respond with the JSON object, nothing else.
 
 const parseJobPosting = async (message: string) => {
   try {
-    console.log("Sending message to OpenAI:");
-    const response = await client.chat.completions.create({
-      model: "deepseek-chat",
+    const response = await client.chat({
+      model: "gemma:2b",
       messages: [
         { role: "system", content: system_prompt },
         { role: "user", content: message },
       ],
-      response_format: { type: "json_object" },
-      temperature: 0.1, // Low temperature for more deterministic outputs
+      format: "json",
     });
 
-    const content = response.choices[0].message.content;
+    const content = response.message.content;
 
     if (!content) {
-      throw new Error("No content returned from OpenAI");
+      throw new Error("No content returned from Ollama");
     }
-
-    console.log("Content:", content);
 
     // Parse the JSON response
     return JSON.parse(content);

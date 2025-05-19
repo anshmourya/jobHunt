@@ -1,8 +1,10 @@
 import "dotenv/config";
-import "./corn";
+// import "./corn";
 import express from "express";
 import cors from "cors";
 import axios from "axios";
+import { parseJobPosting } from "./config/openai";
+import { getUnreadMessages } from "./telegram";
 
 const app = express();
 app.use(cors());
@@ -23,9 +25,9 @@ app.get("/ping", (req, res) => {
 });
 
 const PORT = process.env.PORT ?? 3000;
-const server = app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+// const server = app.listen(PORT, () => {
+//   console.log(`Server is running on port ${PORT}`);
+// });
 
 const keepServerAlive = () => {
   // Array of endpoints to ping
@@ -51,4 +53,8 @@ const keepServerAlive = () => {
   pingServer();
 };
 
-keepServerAlive();
+// keepServerAlive();
+
+getUnreadMessages(["TechUprise_Updates", "jobs_and_internships_updates"]).then(
+  (res) => console.log(res)
+);
