@@ -3,8 +3,10 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import axios from "axios";
+import connectDB from "./config/db";
 import { parseJobPosting } from "./config/openai";
 import { getUnreadMessages } from "./telegram";
+import workflow from "./tools";
 
 const app = express();
 app.use(cors());
@@ -53,8 +55,18 @@ const keepServerAlive = () => {
   pingServer();
 };
 
+connectDB().then(() => {
+  console.log("MongoDB connected");
+});
+
 // keepServerAlive();
 
-getUnreadMessages(["TechUprise_Updates", "jobs_and_internships_updates"]).then(
-  (res) => console.log(res)
-);
+// getUnreadMessages(["TechUprise_Updates", "jobs_and_internships_updates"]).then(
+//   (res) => console.log(res)
+// );
+
+workflow
+  .invoke(
+    "https://gxs.wd3.myworkdayjobs.com/GRXST/job/Bangalore-India/Software-Engineering-Internship_R-2025-05-101458"
+  )
+  .then((res) => console.log(res));

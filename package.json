@@ -21,8 +21,14 @@
     "typescript": "^5.8.2"
   },
   "dependencies": {
+    "@langchain/anthropic": "^0.3.20",
+    "@langchain/community": "^0.3.43",
+    "@langchain/core": "^0.3.56",
+    "@langchain/langgraph": "^0.2.72",
+    "@langchain/ollama": "^0.2.0",
     "@types/intl-tel-input": "^18.1.4",
     "axios": "^1.8.4",
+    "cheerio": "^1.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
@@ -30,11 +36,13 @@
     "google-spreadsheet": "^4.1.4",
     "input": "^1.0.1",
     "job-hunt": "file:",
+    "mongoose": "^8.15.0",
     "node-schedule": "^2.1.1",
     "node-telegram-bot-api": "^0.66.0",
     "nodemon": "^3.1.10",
     "ollama": "^0.5.15",
     "openai": "^4.90.0",
+    "puppeteer": "^24.9.0",
     "telegram": "^2.26.22",
     "telegram-mtproto": "^2.2.2"
   }

@@ -4,6 +4,7 @@ import input from "input";
 import dotenv from "dotenv";
 import { parseJobPosting } from "./config/openai";
 import { addJobToSheet } from "./config/spreedSheet";
+import workflow from "./tools";
 // Load environment variables
 dotenv.config();
 
@@ -244,7 +245,10 @@ const getUnreadMessages = async (channelUsernames: string[]) => {
                     `Processing message ${count} of ${BATCH_SIZE} in batch`
                   );
                   const jobData = await parseJobPosting(msg.message);
+
                   if (jobData) {
+                    const workflowResult = await workflow.invoke(msg.message);
+                    console.log(workflowResult);
                     // Add source information
                     return {
                       ...jobData,
