@@ -61,12 +61,12 @@ connectDB().then(() => {
 
 // keepServerAlive();
 
-// getUnreadMessages(["TechUprise_Updates", "jobs_and_internships_updates"]).then(
-//   (res) => console.log(res)
-// );
+getUnreadMessages(["TechUprise_Updates", "jobs_and_internships_updates"]).then(
+  (res) => console.log(res)
+);
 
-workflow
-  .invoke(
-    "https://gxs.wd3.myworkdayjobs.com/GRXST/job/Bangalore-India/Software-Engineering-Internship_R-2025-05-101458"
-  )
-  .then((res) => console.log(res));
+// workflow
+//   .invoke(
+//     "https://gxs.wd3.myworkdayjobs.com/GRXST/job/Bangalore-India/Software-Engineering-Internship_R-2025-05-101458"
+//   )
+//   .then((res) => console.log(res));

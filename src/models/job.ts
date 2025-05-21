@@ -8,6 +8,25 @@ const jobSchema = new mongoose.Schema(
     important_details: [String],
     additional_info: Object,
     summary: String,
+    status: {
+      type: String,
+      enum: [
+        "applied",
+        "not_applied",
+        "pending",
+        "rejected",
+        "interview",
+        "offer",
+        "hired",
+        "not_interested",
+      ],
+      default: "pending",
+    },
+    source: {
+      type: String,
+      enum: ["telegram", "website"],
+      default: "telegram",
+    },
   },
   {
     timestamps: true,
