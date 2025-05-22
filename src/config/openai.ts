@@ -51,7 +51,7 @@ Only respond with the JSON object, nothing else.
 const parseJobPosting = async (message: string) => {
   try {
     const response = await client.chat({
-      model: "gemma:2b",
+      model: "granite3.2:8b",
       messages: [
         { role: "system", content: system_prompt },
         { role: "user", content: message },
