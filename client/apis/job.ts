@@ -1,0 +1,47 @@
+import axios from "axios";
+import { apis } from ".";
+
+const useJobApi = () => {
+  //get all jobs
+  const getJobs = async () => {
+    try {
+      const response = await apis.get("/jobs");
+      return response.data;
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  //get resume
+  const getResume = async () => {
+    try {
+      const response = await axios.get("http://localhost:5001/resume-builder", {
+        responseType: "arraybuffer", // ✅ Critical: treat as binary
+      });
+
+      const file = new Blob([response.data], { type: "application/pdf" });
+
+      const fileURL = URL.createObjectURL(file);
+      const link = document.createElement("a");
+      link.href = fileURL;
+
+      // Optional: cleaner filename
+      const timestamp = new Date().toISOString().split("T")[0];
+      link.download = `Resume_${timestamp}.pdf`;
+
+      document.body.appendChild(link); // Needed for Firefox
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(fileURL);
+    } catch (error) {
+      console.error("Error downloading resume PDF:", error);
+    }
+  };
+
+  return {
+    getJobs,
+    getResume,
+  };
+};
+
+export default useJobApi;

@@ -1,35 +1,20 @@
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+"use client";
+import useJobApi from "@/apis/job";
+import JobsTable from "@/components/jobs-table";
+import { useQuery } from "@tanstack/react-query";
 
-const page = () => {
+export default function Page() {
+  const { getJobs } = useJobApi();
+
+  const { data } = useQuery({
+    queryKey: ["jobs"],
+    queryFn: getJobs,
+  });
+
   return (
-    <Table>
-      <TableCaption>A list of your recent invoices.</TableCaption>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-[100px]">Invoice</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Method</TableHead>
-          <TableHead className="text-right">Amount</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        <TableRow>
-          <TableCell className="font-medium">INV001</TableCell>
-          <TableCell>Paid</TableCell>
-          <TableCell>Credit Card</TableCell>
-          <TableCell className="text-right">$250.00</TableCell>
-        </TableRow>
-      </TableBody>
-    </Table>
+    <div className="container mx-auto py-10">
+      <h1 className="text-2xl font-bold mb-6">Job Applications Tracker</h1>
+      <JobsTable jobs={data ?? []} />
+    </div>
   );
-};
-
-export default page;
+}

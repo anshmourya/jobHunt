@@ -51,16 +51,16 @@ export function apiClientPrelogin(
 }
 
 export const apis = {
-  get: (url: string, args: AxiosRequestConfig<unknown>) =>
+  get: (url: string, args?: AxiosRequestConfig<unknown>) =>
     apiClient("get", url, args),
-  post: (url: string, args: AxiosRequestConfig<unknown>) =>
+  post: (url: string, args?: AxiosRequestConfig<unknown>) =>
     apiClient("post", url, args),
-  put: (url: string, args: AxiosRequestConfig<unknown>) =>
+  put: (url: string, args?: AxiosRequestConfig<unknown>) =>
     apiClient("put", url, args),
-  patch: (url: string, args: AxiosRequestConfig<unknown>) =>
+  patch: (url: string, args?: AxiosRequestConfig<unknown>) =>
     apiClient("patch", url, args),
-  delete: (url: string, args: AxiosRequestConfig<unknown>) =>
+  delete: (url: string, args?: AxiosRequestConfig<unknown>) =>
     apiClient("delete", url, args),
-  postPrelogin: (url: string, args: AxiosRequestConfig<unknown>) =>
+  postPrelogin: (url: string, args?: AxiosRequestConfig<unknown>) =>
     apiClientPrelogin("post", url, args),
 };
