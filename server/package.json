@@ -37,6 +37,7 @@
     "google-spreadsheet": "^4.1.4",
     "input": "^1.0.1",
     "job-hunt": "file:",
+    "langsmith": "^0.3.29",
     "mongoose": "^8.15.0",
     "node-schedule": "^2.1.1",
     "node-telegram-bot-api": "^0.66.0",

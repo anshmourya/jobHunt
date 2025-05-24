@@ -1,16 +1,13 @@
 import "dotenv/config";
-// import "./corn";
 import express from "express";
 import cors from "cors";
 import axios from "axios";
 import connectDB from "./config/db";
-import { parseJobPosting } from "./config/openai";
-import { getUnreadMessages } from "./telegram";
-import workflow from "./tools";
 import Job from "./models/job";
 import path from "path";
 import puppeteer from "puppeteer";
 import fs from "fs";
+import { resumeBuilder, resumeBuilderWorkflow } from "./tools";
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -118,7 +115,7 @@ const resumeData = {
       link: "https://github.com/anshmourya/ollama",
       duration: "May 2025 – Present",
       points: [
-        "Built a TypeScript/Node.js CLI TODO assistant with Express and Ollama’s gemma:2b, using a START→PLAN→ACTION→OBSERVATION→OUTPUT workflow.",
+        "Built a TypeScript/Node.js CLI TODO assistant with Express and Ollama's gemma:2b, using a START→PLAN→ACTION→OBSERVATION→OUTPUT workflow.",
         "Implemented modular CRUD tools with refined prompts and error handling, cutting user retries by 30%.",
       ],
     },
@@ -195,16 +192,27 @@ app.get("/jobs", async (req, res) => {
 
 //return resume
 app.get("/resume-builder", async (req, res) => {
+  const keywords = req.query.keywords as string[];
+  const resume = await resumeBuilderWorkflow.invoke({ resumeData, keywords:['nextjs', 'nodejs', 'redis'] });
+
+  console.log(resume);
+
   const browser = await puppeteer.launch({
     headless: true,
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
   });
 
   const page = await browser.newPage();
-  await page.goto("http://localhost:5001/resume-view", {
-    waitUntil: "networkidle0",
-    timeout: 30000,
+
+  // Render the EJS template to HTML string
+  const html = await new Promise<string>((resolve, reject) => {
+    app.render('resume', { resume: resumeData }, (err, html) => {
+      if (err) reject(err);
+      else resolve(html);
+    });
   });
+
+  await page.setContent(html);
 
   const pdfBuffer = await page.pdf({
     format: "A4",
