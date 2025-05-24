@@ -1,4 +1,3 @@
-import axios from "axios";
 import { apis } from ".";
 
 const useJobApi = () => {
@@ -15,8 +14,8 @@ const useJobApi = () => {
   //get resume
   const getResume = async () => {
     try {
-      const response = await axios.get("http://localhost:5001/resume-builder", {
-        responseType: "arraybuffer", // ✅ Critical: treat as binary
+      const response = await apis.get("/resume-builder", {
+        responseType: "arraybuffer",
       });
 
       const file = new Blob([response.data], { type: "application/pdf" });
