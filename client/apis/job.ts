@@ -38,9 +38,28 @@ const useJobApi = () => {
     }
   };
 
+  //update job status
+  const updateJobStatus = async ({
+    job_id,
+    status,
+  }: {
+    job_id: string;
+    status: string;
+  }) => {
+    try {
+      const response = await apis.put("/update-job-status", {
+        params: { job_id, status },
+      });
+      return response.data;
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   return {
     getJobs,
     getResume,
+    updateJobStatus,
   };
 };
 

@@ -12,11 +12,19 @@ import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import useJobApi from "@/apis/job";
 import { Button } from "./ui/button";
-import { useMutation } from "@tanstack/react-query";
-import { toast } from "react-toastify";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import toast from "react-hot-toast";
 import { Loader2 } from "lucide-react";
 import type { AxiosError } from "axios";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import { cn } from "@/lib/utils";
 // Define the Job type based on the Mongoose schema
 type Job = {
   _id: string;
@@ -53,10 +61,20 @@ const statusColors: Record<Job["status"], string> = {
 };
 
 export default function JobsTable({ jobs }: { jobs: Job[] }) {
+  const queryClient = useQueryClient();
   const [currentRunningJobIds, setCurrentRunningJobIds] = useState<string[]>(
     []
   );
-  const { getResume } = useJobApi();
+
+  const addJobToCurrentRunningJobIds = (jobId: string) => {
+    setCurrentRunningJobIds((prev) => [...prev, jobId]);
+  };
+
+  const removeJobFromCurrentRunningJobIds = (jobId: string) => {
+    setCurrentRunningJobIds((prev) => prev.filter((id) => id !== jobId));
+  };
+
+  const { getResume, updateJobStatus } = useJobApi();
   const { mutate: getResumeMutation } = useMutation({
     mutationFn: async (keywords: string[]) => {
       if (keywords.length === 0) {
@@ -67,7 +85,7 @@ export default function JobsTable({ jobs }: { jobs: Job[] }) {
     },
     onSuccess: () => {
       toast.success("Resume downloaded successfully", {
-        toastId: "resume",
+        id: "resume",
       });
     },
     onError: (error: AxiosError<{ message?: string }>) => {
@@ -76,18 +94,47 @@ export default function JobsTable({ jobs }: { jobs: Job[] }) {
         error.message ??
         "Something went wrong";
       toast.error(message, {
-        toastId: "resume",
+        id: "resume",
       });
     },
     onMutate: (keywords: string[]) => {
       const id = keywords.join(",");
-      setCurrentRunningJobIds((prev) => [...prev, id]);
+      addJobToCurrentRunningJobIds(id);
     },
     onSettled: (_data, _error, variables) => {
       const id = variables.join(",");
-      setCurrentRunningJobIds((prev) =>
-        prev.filter((existingId) => existingId !== id)
-      );
+      removeJobFromCurrentRunningJobIds(id);
+    },
+  });
+
+  const { mutate: updateJobMutation } = useMutation({
+    mutationFn: updateJobStatus,
+    onMutate: (variables) => {
+      toast.loading("Updating job status", {
+        id: "job",
+      });
+      addJobToCurrentRunningJobIds(variables.job_id);
+    },
+    onSuccess: (variables) => {
+      toast.success("Job status updated successfully", {
+        id: "job",
+      });
+      removeJobFromCurrentRunningJobIds(variables.job_id);
+      queryClient.invalidateQueries({
+        queryKey: ["jobs"],
+      });
+    },
+    onError: (error: AxiosError<{ message?: string }>) => {
+      const message =
+        error.response?.data?.message ??
+        error.message ??
+        "Something went wrong";
+      toast.error(message, {
+        id: "job",
+      });
+    },
+    onSettled: (_data, _error, variables) => {
+      removeJobFromCurrentRunningJobIds(variables.job_id);
     },
   });
 
@@ -125,9 +172,35 @@ export default function JobsTable({ jobs }: { jobs: Job[] }) {
               </div>
             </TableCell>
             <TableCell>
-              <Badge className={`${statusColors[job.status]}`}>
-                {job.status.replace("_", " ")}
-              </Badge>
+              <Select
+                value={job.status}
+                onValueChange={(value) =>
+                  updateJobMutation({ job_id: job._id, status: value })
+                }
+                disabled={currentRunningJobIds.includes(job._id)}
+              >
+                <SelectTrigger
+                  className={cn("w-fit", statusColors[job.status])}
+                >
+                  <SelectValue placeholder="Select a status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {[
+                    "applied",
+                    "not_applied",
+                    "pending",
+                    "rejected",
+                    "interview",
+                    "offer",
+                    "hired",
+                    "not_interested",
+                  ].map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status.replace("_", " ").toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </TableCell>
             <TableCell>
               <Badge variant="outline">{job.source}</Badge>
