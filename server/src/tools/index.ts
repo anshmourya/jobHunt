@@ -27,32 +27,110 @@ async function getBrowser() {
   return sharedBrowser;
 }
 
+let requestCount = 0; // Global counter for requests made in this run
+const MAX_REQUESTS_BEFORE_PAUSE = 29;
+const WAIT_DURATION_MS = 60000; // 1 minute wait (60s)
+
 // Utility: retry with backoff
-async function retry(fn: () => Promise<any>, attempts = 3, delay = 500) {
+export async function retry(
+  fn: () => Promise<any>,
+  attempts = 3,
+  delay = 500,
+  isRequestFromLLM = false
+) {
   let lastError;
+
   for (let i = 1; i <= attempts; i++) {
     try {
-      return await fn();
-    } catch (err) {
+      if (requestCount >= MAX_REQUESTS_BEFORE_PAUSE) {
+        console.warn(
+          `⚠️ Request limit approaching (${requestCount}/${MAX_REQUESTS_BEFORE_PAUSE}). Waiting 60s...`
+        );
+        await new Promise((res) => setTimeout(res, WAIT_DURATION_MS));
+        requestCount = 0; // reset after wait
+      }
+
+      const response = await fn();
+      if (isRequestFromLLM) {
+        requestCount++;
+      }
+      return response;
+    } catch (err: unknown) {
       lastError = err;
-      logger.warn({ attempt: i, err }, "Retry attempt failed");
+      console.error(
+        `Retry ${i}/${attempts} failed:`,
+        (err as Error).message ?? err
+      );
       await new Promise((res) => setTimeout(res, delay * i));
     }
   }
+
   throw lastError;
 }
 
 // job post extractor with timeout and retry
-const jobPostExtractor = task("jobPostExtractor", async (link) => {
+const jobPostExtractor = task("jobPostExtractor", async (link: string) => {
   return retry(async () => {
     const browser = await getBrowser();
     const page = await browser.newPage();
+
     try {
-      await page.goto(link, { waitUntil: "networkidle0", timeout: 30000 });
+      // Set a realistic user agent
+      await page.setUserAgent(
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+      );
+
+      // Configure page settings
+      await page.setDefaultNavigationTimeout(60000); // 60 seconds
+      await page.setDefaultTimeout(60000);
+
+      // Disable images and styles for faster loading
+      await page.setRequestInterception(true);
+      page.on("request", (req) => {
+        if (["image", "stylesheet", "font"].includes(req.resourceType())) {
+          req.abort();
+        } else {
+          req.continue();
+        }
+      });
+
+      // Try to navigate with networkidle0, fallback to domcontentloaded if it fails
+      try {
+        await page.goto(link, {
+          waitUntil: "networkidle0",
+          timeout: 60000,
+        });
+      } catch (err: unknown) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        logger.warn(
+          `Navigation with networkidle0 failed, trying domcontentloaded: ${error.message}`
+        );
+        await page.goto(link, {
+          waitUntil: "domcontentloaded",
+          timeout: 60000,
+        });
+      }
+
+      // Wait for body to be present
+      await page.waitForSelector("body", { timeout: 10000 });
+
+      // Get the page content
       const content = await page.evaluate(() => document.body.innerText);
+
+      if (!content || content.length < 100) {
+        throw new Error("Page content is too short or empty");
+      }
+
       return content;
+    } catch (error: any) {
+      logger.error(`Error extracting job post from ${link}: ${error.message}`);
+      throw error; // Re-throw to trigger retry
     } finally {
-      await page.close();
+      try {
+        await page.close();
+      } catch (e: any) {
+        logger.warn(`Error closing page: ${e.message}`);
+      }
     }
   });
 });
@@ -69,7 +147,8 @@ const summary = task("summary", async (input) => {
           },
         }),
       2,
-      1000
+      1000,
+      true
     );
     const content =
       typeof result.content === "string"
@@ -103,7 +182,7 @@ const pushToDatabase = task("pushToDatabase", async (data) => {
 });
 
 // entrypoint
-const workflow = entrypoint("jobPostExtractor", async (link) => {
+const workflow = entrypoint("jobPostExtractor", async (link: string) => {
   const start = Date.now();
   const output = { isSaved: false, result: null, errors: [], timeTaken: "" };
 
@@ -115,7 +194,7 @@ const workflow = entrypoint("jobPostExtractor", async (link) => {
     output.result = result;
     logger.info({ duration: Date.now() - start }, "Generated summary");
 
-    const saved = await pushToDatabase(result);
+    const saved = await pushToDatabase({ ...result, apply_link: link });
     output.isSaved = saved;
     logger.info(
       { duration: Date.now() - start, saved },
@@ -147,7 +226,8 @@ const qualityCheck = task(
             },
           }),
         2,
-        1000
+        1000,
+        true
       );
       const content =
         typeof result.content === "string"
@@ -177,7 +257,8 @@ export const resumeBuilder = task(
             },
           }),
         2,
-        1000
+        1000,
+        true
       );
       const content =
         typeof result.content === "string"
@@ -210,7 +291,8 @@ const atsFriendlyResolver = task(
             },
           }),
         2,
-        1000
+        1000,
+        true
       );
       const content =
         typeof result.content === "string"
@@ -244,7 +326,8 @@ const keywordPlacement = task(
             },
           }),
         2,
-        1000
+        1000,
+        true
       );
       const content =
         typeof result.content === "string"
@@ -277,7 +360,8 @@ const integrityCheck = task(
             },
           }),
         2,
-        1000
+        1000,
+        true
       );
       const content =
         typeof result.content === "string"
@@ -317,7 +401,8 @@ const aggregate = task(
             },
           }),
         2,
-        1000
+        1000,
+        true
       );
       const content =
         typeof result.content === "string"
@@ -343,7 +428,7 @@ export const resumeBuilderWorkflow = entrypoint(
       const generatedResume = await resumeBuilder(resumeData, keywords);
       const qualityCheckResult = await qualityCheck(
         resumeData,
-        generatedResume,  
+        generatedResume,
         keywords
       );
 

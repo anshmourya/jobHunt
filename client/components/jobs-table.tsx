@@ -16,6 +16,7 @@ import { useMutation } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import type { AxiosError } from "axios";
 // Define the Job type based on the Mongoose schema
 type Job = {
   _id: string;
@@ -36,6 +37,7 @@ type Job = {
   source: "telegram" | "website";
   createdAt: string;
   updatedAt: string;
+  apply_link: string;
 };
 
 // Status badge colors
@@ -51,25 +53,34 @@ const statusColors: Record<Job["status"], string> = {
 };
 
 export default function JobsTable({ jobs }: { jobs: Job[] }) {
-  const [currentRunningJobIds, setCurrentRunningJobIds] = useState<string[]>([]);
+  const [currentRunningJobIds, setCurrentRunningJobIds] = useState<string[]>(
+    []
+  );
   const { getResume } = useJobApi();
   const { mutate: getResumeMutation } = useMutation({
     mutationFn: async (keywords: string[]) => {
+      if (keywords.length === 0) {
+        throw new Error("No keywords provided");
+      }
       await getResume(keywords);
-      return keywords.join(','); // Return a string ID for tracking
+      return keywords.join(","); // Return a string ID for tracking
     },
     onSuccess: () => {
       toast.success("Resume downloaded successfully", {
         toastId: "resume",
       });
     },
-    onError: () => {
-      toast.error("Error downloading resume", {
+    onError: (error: AxiosError<{ message?: string }>) => {
+      const message =
+        error.response?.data?.message ??
+        error.message ??
+        "Something went wrong";
+      toast.error(message, {
         toastId: "resume",
       });
     },
     onMutate: (keywords: string[]) => {
-      const id = keywords.join(',');
+      const id = keywords.join(",");
       setCurrentRunningJobIds((prev) => [...prev, id]);
     },
     onSettled: (_data, _error, variables) => {
@@ -79,7 +90,7 @@ export default function JobsTable({ jobs }: { jobs: Job[] }) {
       );
     },
   });
- 
+
   return (
     <Table>
       <TableCaption>A list of your job applications.</TableCaption>
@@ -126,18 +137,24 @@ export default function JobsTable({ jobs }: { jobs: Job[] }) {
                 addSuffix: true,
               })}
             </TableCell>
-            <TableCell>
+            <TableCell className="flex gap-2">
               <Button
                 onClick={() => getResumeMutation(job.keywords)}
-                disabled={currentRunningJobIds.includes(
-                  job.keywords.join(",")
-                )}
+                disabled={currentRunningJobIds.includes(job.keywords.join(","))}
+                size="sm"
               >
                 {currentRunningJobIds.includes(job.keywords.join(",")) ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   "Resume"
                 )}
+              </Button>
+              <Button
+                onClick={() => window.open(job.apply_link, "_blank")}
+                disabled={currentRunningJobIds.includes(job.keywords.join(","))}
+                size="sm"
+              >
+                Apply
               </Button>
             </TableCell>
           </TableRow>

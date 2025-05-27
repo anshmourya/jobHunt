@@ -27,6 +27,7 @@ const jobSchema = new mongoose.Schema(
       enum: ["telegram", "website"],
       default: "telegram",
     },
+    apply_link: String,
   },
   {
     timestamps: true,

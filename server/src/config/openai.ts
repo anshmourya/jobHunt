@@ -1,76 +1,60 @@
 import { Ollama } from "ollama";
+import { summaryModel } from "./ollama";
+import { retry } from "../tools";
 const client = new Ollama({
   host: "localhost",
 });
 
 const system_prompt = `
-You are a specialized AI assistant that extracts job posting information from Telegram messages.
-Your task is to analyze the provided message and extract key job details into a structured JSON format.
+Extract job details from Telegram messages to JSON:
 
-Extract the following fields (if present):
-- companyName: The name of the company that is hiring
-- position: The job title or role being offered
-- experience: Required years of experience
-- package: Salary or compensation details
-- location: Where the job is located
-- qualifications: Required education or skills
-- applyLink: URL where the user can apply for the job
-- email: Contact email (if provided)
-- batchYear: Target graduation years (if mentioned)
-- deadline: Application deadline (if mentioned)
-
-If a field is not present in the message, set its value to null.
-If there are multiple positions mentioned, focus on the main job posting.
-
-EXAMPLE INPUT:
-Infosys is hiring!
-Position: Associate Business Analyst
-Qualification: Bachelor's/ Master's Degree
-Salary: 6.3 LPA (Expected)
-Experienc﻿e: Freshers/ Experienced
-Location: Hyderabad, India
-📌Apply Now: https://career.infosys.com/jobdesc?jobReferenceCode=INFSYS-EXTERNAL-209867&sourceId=4003
-
-EXAMPLE JSON OUTPUT:
 {
-  "companyName": "Infosys",
-  "position": "Associate Business Analyst",
-  "experience": "Freshers/ Experienced",
-  "package": "6.3 LPA (Expected)",
-  "location": "Hyderabad, India",
-  "qualifications": "Bachelor's/ Master's Degree",
-  "applyLink": "https://career.infosys.com/jobdesc?jobReferenceCode=INFSYS-EXTERNAL-209867&sourceId=4003",
-  "email": null,
-  "batchYear": null,
-  "deadline": null
+  "companyName": "company name or null",
+  "position": "job title or null", 
+  "experience": "years/level or null",
+  "package": "salary/compensation or null",
+  "location": "job location or null",
+  "qualifications": "education/skills or null",
+  "applyLink": "application URL or null",
+  "email": "contact email or null",
+  "batchYear": "graduation years or null",
+  "deadline": "application deadline or null"
 }
 
-Only respond with the JSON object, nothing else.
+Message:
+""" MESSAGE_HERE """
+
+Return JSON only.
 `;
 
 const parseJobPosting = async (message: string) => {
-  try {
-    const response = await client.chat({
-      model: "granite3.2:8b",
-      messages: [
-        { role: "system", content: system_prompt },
-        { role: "user", content: message },
-      ],
-      format: "json",
-    });
+  return retry(
+    async () => {
+      try {
+        const prompt = system_prompt.replace("MESSAGE_HERE", message);
+        const response = await summaryModel.invoke(prompt, {
+          response_format: {
+            type: "json_object",
+          },
+        });
 
-    const content = response.message.content;
+        if (!response) {
+          throw new Error("No content returned from Ollama");
+        }
 
-    if (!content) {
-      throw new Error("No content returned from Ollama");
-    }
-
-    // Parse the JSON response
-    return JSON.parse(content);
-  } catch (error) {
-    console.error("Error parsing job posting:", error);
-    return null;
-  }
+        // Parse the JSON response
+        return typeof response.content === "string"
+          ? JSON.parse(response.content)
+          : response.content;
+      } catch (error) {
+        console.error("Error parsing job posting:", error);
+        return null;
+      }
+    },
+    2,
+    1000,
+    true
+  );
 };
 
 export { parseJobPosting };

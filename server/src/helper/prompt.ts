@@ -21,7 +21,10 @@ export const qualityCheckPrompt = `Check resume quality. Return:
 {"integrity_passed":true,"ats_passed":true,"keyword_passed":true,"issues":[]}
 Original: ACTUAL_RESUME_HERE
 Generated: GENERATED_RESUME_HERE
-Keywords: KEYWORDS_LIST_HERE`;
+Keywords: KEYWORDS_LIST_HERE
+
+Retrun only JSON
+`;
 
 export const atsFriendlyResolverPrompt = `
 You are an expert ATS-friendly resume transformer. You will receive two inputs in JSON format:
@@ -47,6 +50,8 @@ Here is the issues list:
 """
 ISSUES_LIST_HERE
 """
+
+Return only JSON
 `;
 
 export const keywordPlacementPrompt = `
@@ -83,6 +88,8 @@ Here is the incorrect placement:
 """
 INCORRECT_PLACEMENT_HERE
 """
+
+Return only JSON
 `;
 
 export const integrityCheckPrompt = `
@@ -113,6 +120,8 @@ Here is the issues list:
 """
 ISSUES_LIST_HERE
 """
+
+Return only JSON
 `;
 
 export const aggregatePrompt = `
@@ -145,4 +154,5 @@ Here is the keyword updated resume:
 """
 KEYWORD_UPDATED_RESUME_HERE
 """
-`;
+
+Return only JSON`;
