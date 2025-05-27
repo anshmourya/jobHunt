@@ -24,13 +24,42 @@
       }
 
       @media print {
-        html,
-        body {
-          width: 210mm;
-          height: 297mm;
-          /* overflow: hidden; */
-        }
-      }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: auto;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  *, *::before, *::after {
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  section, div, .break-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .text-sm {
+    font-size: 11px !important;
+  }
+
+  .p-4, .px-8, .py-6 {
+    padding: 0.5rem !important;
+  }
+
+  .mb-4, .mb-6, .mb-8 {
+    margin-bottom: 0.5rem !important;
+  }
+
+  .mt-4, .mt-6, .mt-8 {
+    margin-top: 0.5rem !important;
+  }
+}
+
 
       h1,
       h2 {

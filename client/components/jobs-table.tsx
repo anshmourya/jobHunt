@@ -12,6 +12,10 @@ import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import useJobApi from "@/apis/job";
 import { Button } from "./ui/button";
+import { useMutation } from "@tanstack/react-query";
+import { toast } from "react-toastify";
+import { useState } from "react";
+import { Loader2 } from "lucide-react";
 // Define the Job type based on the Mongoose schema
 type Job = {
   _id: string;
@@ -47,15 +51,35 @@ const statusColors: Record<Job["status"], string> = {
 };
 
 export default function JobsTable({ jobs }: { jobs: Job[] }) {
+  const [currentRunningJobIds, setCurrentRunningJobIds] = useState<string[]>([]);
   const { getResume } = useJobApi();
-
-  const handleResume = async () => {
-    try {
-      await getResume();
-    } catch (error) {
-      console.error(error);
-    }
-  };
+  const { mutate: getResumeMutation } = useMutation({
+    mutationFn: async (keywords: string[]) => {
+      await getResume(keywords);
+      return keywords.join(','); // Return a string ID for tracking
+    },
+    onSuccess: () => {
+      toast.success("Resume downloaded successfully", {
+        toastId: "resume",
+      });
+    },
+    onError: () => {
+      toast.error("Error downloading resume", {
+        toastId: "resume",
+      });
+    },
+    onMutate: (keywords: string[]) => {
+      const id = keywords.join(',');
+      setCurrentRunningJobIds((prev) => [...prev, id]);
+    },
+    onSettled: (_data, _error, variables) => {
+      const id = variables.join(",");
+      setCurrentRunningJobIds((prev) =>
+        prev.filter((existingId) => existingId !== id)
+      );
+    },
+  });
+ 
   return (
     <Table>
       <TableCaption>A list of your job applications.</TableCaption>
@@ -103,7 +127,18 @@ export default function JobsTable({ jobs }: { jobs: Job[] }) {
               })}
             </TableCell>
             <TableCell>
-              <Button onClick={handleResume}>Resume</Button>
+              <Button
+                onClick={() => getResumeMutation(job.keywords)}
+                disabled={currentRunningJobIds.includes(
+                  job.keywords.join(",")
+                )}
+              >
+                {currentRunningJobIds.includes(job.keywords.join(",")) ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  "Resume"
+                )}
+              </Button>
             </TableCell>
           </TableRow>
         ))}

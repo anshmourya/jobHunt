@@ -12,9 +12,10 @@ const useJobApi = () => {
   };
 
   //get resume
-  const getResume = async () => {
+  const getResume = async (keywords: string[]) => {
     try {
       const response = await apis.get("/resume-builder", {
+        params: { keywords: keywords.join(",") },
         responseType: "arraybuffer",
       });
 

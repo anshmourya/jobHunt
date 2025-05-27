@@ -3,9 +3,17 @@ import { task, entrypoint } from "@langchain/langgraph";
 import Job from "../models/job";
 import puppeteer from "puppeteer";
 import pino from "pino";
-import { aggregatePrompt, atsFriendlyResolverPrompt, generateResumeJson, integrityCheckPrompt, jobPostPrompt, keywordPlacementPrompt, qualityCheckPrompt } from "../helper/prompt";
+import {
+  aggregatePrompt,
+  atsFriendlyResolverPrompt,
+  generateResumeJson,
+  integrityCheckPrompt,
+  jobPostPrompt,
+  keywordPlacementPrompt,
+  qualityCheckPrompt,
+} from "../helper/prompt";
 
-const logger = pino({ level: process.env.LOG_LEVEL || "info" });
+const logger = pino({ level: process.env.LOG_LEVEL ?? "info" });
 
 // Initialize a shared browser instance
 let sharedBrowser;
@@ -53,7 +61,16 @@ const jobPostExtractor = task("jobPostExtractor", async (link) => {
 const summary = task("summary", async (input) => {
   const message = jobPostPrompt.replace("JOB_DESCRIPTION_HERE", String(input));
   try {
-    const result = await retry(() => summaryModel.invoke(message), 2, 1000);
+    const result = await retry(
+      () =>
+        summaryModel.invoke(message, {
+          response_format: {
+            type: "json_object",
+          },
+        }),
+      2,
+      1000
+    );
     const content =
       typeof result.content === "string"
         ? result.content
@@ -114,154 +131,271 @@ const workflow = entrypoint("jobPostExtractor", async (link) => {
 });
 
 //quality check tool
-const qualityCheck = task("qualityCheck", async (actualResume , generatedResume , keywords) => {
-  const message = qualityCheckPrompt.replace("ACTUAL_RESUME_HERE", JSON.stringify(actualResume , null , 2)).replace("GENERATED_RESUME_HERE", JSON.stringify(generatedResume , null , 2)).replace("KEYWORDS_LIST_HERE", JSON.stringify(keywords));
-  try {
-    const result = await retry(() => summaryModel.invoke(message), 2, 1000);
-    const content =
-      typeof result.content === "string"
-        ? result.content
-        : JSON.stringify(result.content);
-    return JSON.parse(content);
-  } catch (err) {
-    logger.error({ err }, "Quality check model invocation failed");
-    return null;
+const qualityCheck = task(
+  "qualityCheck",
+  async (actualResume, generatedResume, keywords) => {
+    const message = qualityCheckPrompt
+      .replace("ACTUAL_RESUME_HERE", JSON.stringify(actualResume))
+      .replace("GENERATED_RESUME_HERE", JSON.stringify(generatedResume))
+      .replace("KEYWORDS_LIST_HERE", JSON.stringify(keywords));
+    try {
+      const result = await retry(
+        () =>
+          summaryModel.invoke(message, {
+            response_format: {
+              type: "json_object",
+            },
+          }),
+        2,
+        1000
+      );
+      const content =
+        typeof result.content === "string"
+          ? result.content
+          : JSON.stringify(result.content);
+      return JSON.parse(content);
+    } catch (err) {
+      logger.error({ err }, "Quality check model invocation failed");
+      return null;
+    }
   }
-});
+);
 
 // resume builder
-export const resumeBuilder = task("resumeBuilder", async (resumeData , keywords) => {
-  const message = generateResumeJson.replace("RESUME_DATA_HERE", JSON.stringify(resumeData , null , 2)).replace("KEYWORDS_HERE", JSON.stringify(keywords));
-  try {
-    const result = await retry(() => summaryModel.invoke(message),   2, 1000);
-    const content =
-      typeof result.content === "string"
-        ? result.content
-        : JSON.stringify(result.content);
-    logger.info({ content }, "Resume builder model invocation");
-    return JSON.parse(content);
-  } catch (err) {
-    logger.error({ err }, "Resume builder model invocation failed");
-    return null;
+export const resumeBuilder = task(
+  "resumeBuilder",
+  async (resumeData, keywords) => {
+    const message = generateResumeJson
+      .replace("RESUME_DATA_HERE", JSON.stringify(resumeData))
+      .replace("KEYWORDS_HERE", JSON.stringify(keywords));
+    try {
+      const result = await retry(
+        () =>
+          summaryModel.invoke(message, {
+            response_format: {
+              type: "json_object",
+            },
+          }),
+        2,
+        1000
+      );
+      const content =
+        typeof result.content === "string"
+          ? result.content
+          : JSON.stringify(result.content);
+      logger.info(
+        "----------- Ended Resume builder model invocation-----------"
+      );
+      return JSON.parse(content);
+    } catch (err) {
+      logger.error({ err }, "Resume builder model invocation failed");
+      return null;
+    }
   }
-});
+);
 
 // ats friendly resolver
-const atsFriendlyResolver = task("atsFriendlyResolver", async (resumeData , issuesList) => {
-  const message = atsFriendlyResolverPrompt.replace("RESUME_JSON_HERE", JSON.stringify(resumeData , null , 2)).replace("ISSUES_LIST_HERE", JSON.stringify(issuesList));
-  try {
-    const result = await retry(() => summaryModel.invoke(message), 2, 1000);
-    const content =
-      typeof result.content === "string"
-        ? result.content
-        : JSON.stringify(result.content);
-    logger.info({ content }, "ATS friendly resolver model invocation");
-    return JSON.parse(content);
-  } catch (err) {
-    logger.error({ err }, "ATS friendly resolver model invocation failed");
-    return null;
+const atsFriendlyResolver = task(
+  "atsFriendlyResolver",
+  async (resumeData, issuesList) => {
+    const message = atsFriendlyResolverPrompt
+      .replace("RESUME_JSON_HERE", JSON.stringify(resumeData))
+      .replace("ISSUES_LIST_HERE", JSON.stringify(issuesList));
+    try {
+      const result = await retry(
+        () =>
+          summaryModel.invoke(message, {
+            response_format: {
+              type: "json_object",
+            },
+          }),
+        2,
+        1000
+      );
+      const content =
+        typeof result.content === "string"
+          ? result.content
+          : JSON.stringify(result.content);
+      logger.info(
+        "----------- Ended ATS friendly resolver model invocation-----------"
+      );
+      return JSON.parse(content);
+    } catch (err) {
+      logger.error({ err }, "ATS friendly resolver model invocation failed");
+      return null;
+    }
   }
-});
+);
 
 // keyword placement
-const keywordPlacement = task("keywordPlacement", async (resumeData , missingKeywords , incorrectPlacement) => {
-  const message = keywordPlacementPrompt.replace("RESUME_JSON_HERE", JSON.stringify(resumeData , null , 2)).replace("MISSING_KEYWORDS_HERE", JSON.stringify(missingKeywords)).replace("INCORRECT_PLACEMENT_HERE", JSON.stringify(incorrectPlacement));
-  try {
-    const result = await retry(() => summaryModel.invoke(message), 2, 1000);
-    const content =
-      typeof result.content === "string"
-        ? result.content
-        : JSON.stringify(result.content);
-    logger.info({ content }, "Keyword placement model invocation");
-    return JSON.parse(content);
-  } catch (err) {
-    logger.error({ err }, "Keyword placement model invocation failed");
-    return null;
+const keywordPlacement = task(
+  "keywordPlacement",
+  async (resumeData, missingKeywords, incorrectPlacement) => {
+    const message = keywordPlacementPrompt
+      .replace("RESUME_JSON_HERE", JSON.stringify(resumeData))
+      .replace("MISSING_KEYWORDS_HERE", JSON.stringify(missingKeywords))
+      .replace("INCORRECT_PLACEMENT_HERE", JSON.stringify(incorrectPlacement));
+    try {
+      const result = await retry(
+        () =>
+          summaryModel.invoke(message, {
+            response_format: {
+              type: "json_object",
+            },
+          }),
+        2,
+        1000
+      );
+      const content =
+        typeof result.content === "string"
+          ? result.content
+          : JSON.stringify(result.content);
+      logger.info(
+        "----------- Ended Keyword placement model invocation-----------"
+      );
+      return JSON.parse(content);
+    } catch (err) {
+      logger.error({ err }, "Keyword placement model invocation failed");
+      return null;
+    }
   }
-});
+);
 
 // integrity check
-const integrityCheck = task("integrityCheck", async (resumeData, issuesList) => {
-  const message = integrityCheckPrompt.replace("RESUME_JSON_HERE", JSON.stringify(resumeData , null , 2)).replace("ISSUES_LIST_HERE", JSON.stringify(issuesList));
-  try {
-    const result = await retry(() => summaryModel.invoke(message), 2, 1000);
-    const content =
-      typeof result.content === "string"
-        ? result.content
-        : JSON.stringify(result.content);
-    logger.info({ content }, "Integrity check model invocation");
-    return JSON.parse(content);
-  } catch (err) {
-    logger.error({ err }, "Integrity check model invocation failed");
-    return null;
+const integrityCheck = task(
+  "integrityCheck",
+  async (resumeData, issuesList) => {
+    const message = integrityCheckPrompt
+      .replace("RESUME_JSON_HERE", JSON.stringify(resumeData))
+      .replace("ISSUES_LIST_HERE", JSON.stringify(issuesList));
+    try {
+      const result = await retry(
+        () =>
+          summaryModel.invoke(message, {
+            response_format: {
+              type: "json_object",
+            },
+          }),
+        2,
+        1000
+      );
+      const content =
+        typeof result.content === "string"
+          ? result.content
+          : JSON.stringify(result.content);
+      logger.info(
+        "----------- Ended Integrity check model invocation-----------"
+      );
+      return JSON.parse(content);
+    } catch (err) {
+      logger.error({ err }, "Integrity check model invocation failed");
+      return null;
+    }
   }
-});
+);
 
 // aggregate
-const aggregate = task("aggregate", async (integrityCheckResult, atsCheckResult, keywordCheckResult) => {
-  const message = aggregatePrompt.replace("INTEGRITY_UPDATED_RESUME_HERE", JSON.stringify(integrityCheckResult , null , 2)).replace("ATS_UPDATED_RESUME_HERE", JSON.stringify(atsCheckResult , null , 2)).replace("KEYWORD_UPDATED_RESUME_HERE", JSON.stringify(keywordCheckResult , null , 2 ));
-  try {
-    const result = await retry(() => summaryModel.invoke(message), 2, 1000);
-    const content =
-      typeof result.content === "string"
-        ? result.content
-        : JSON.stringify(result.content);
-    logger.info({ content }, "Aggregate model invocation");
-    return JSON.parse(content);
-  } catch (err) {
-    logger.error({ err }, "Aggregate model invocation failed");
-    return null;
+const aggregate = task(
+  "aggregate",
+  async (integrityCheckResult, atsCheckResult, keywordCheckResult) => {
+    const message = aggregatePrompt
+      .replace(
+        "INTEGRITY_UPDATED_RESUME_HERE",
+        JSON.stringify(integrityCheckResult)
+      )
+      .replace("ATS_UPDATED_RESUME_HERE", JSON.stringify(atsCheckResult))
+      .replace(
+        "KEYWORD_UPDATED_RESUME_HERE",
+        JSON.stringify(keywordCheckResult, null, 2)
+      );
+    try {
+      const result = await retry(
+        () =>
+          summaryModel.invoke(message, {
+            response_format: {
+              type: "json_object",
+            },
+          }),
+        2,
+        1000
+      );
+      const content =
+        typeof result.content === "string"
+          ? result.content
+          : JSON.stringify(result.content);
+      logger.info("----------- Ended Aggregate model invocation-----------");
+      return JSON.parse(content);
+    } catch (err) {
+      logger.error({ err }, "Aggregate model invocation failed");
+      return null;
+    }
   }
-});
+);
 
+export const resumeBuilderWorkflow = entrypoint(
+  "resumeBuilder",
+  async (input: { resumeData: any; keywords: string[] }) => {
+    const start = Date.now();
+    const output = { result: null as any, errors: [], timeTaken: "" };
+    const { resumeData, keywords } = input;
 
-export const resumeBuilderWorkflow = entrypoint("resumeBuilder", async (input: { resumeData: any, keywords: string[] }) => {
-  const start = Date.now();
-  const output = { result: null, errors: [], timeTaken: "" };
-  const { resumeData, keywords } = input;
-  console.log(JSON.stringify(resumeData).slice(0, 100), keywords);
+    try {
+      const generatedResume = await resumeBuilder(resumeData, keywords);
+      const qualityCheckResult = await qualityCheck(
+        resumeData,
+        generatedResume,  
+        keywords
+      );
 
-  try {
-    const generatedResume = await resumeBuilder(resumeData, keywords);
-    const qualityCheckResult = await qualityCheck(resumeData, generatedResume, keywords);
-    
-    if (qualityCheckResult.integrityCheck.passed && qualityCheckResult.atsCheck.passed && qualityCheckResult.keywordCheck.passed) {
-      return {
-        result: generatedResume,
-        errors: [],
-        timeTaken: `${Date.now() - start}ms`
+      if (
+        qualityCheckResult.integrity_passed &&
+        qualityCheckResult.ats_passed &&
+        qualityCheckResult.keyword_passed &&
+        true //TODO: remove this
+      ) {
+        output.result = generatedResume;
+        output.timeTaken = `${Date.now() - start}ms`;
+        return output;
       }
-    }
-    
-    let functionCalls: Promise<any>[] = [];
-    if (!qualityCheckResult.integrityCheck.passed) {
-      functionCalls.push(integrityCheck(resumeData , qualityCheckResult.integrityCheck.issues));
-    }
-    if (!qualityCheckResult.atsCheck.passed) {
-      functionCalls.push(atsFriendlyResolver(resumeData, qualityCheckResult.atsCheck.issues));
-    }
-    if (!qualityCheckResult.keywordCheck.passed) {
-      functionCalls.push(keywordPlacement(resumeData, qualityCheckResult.keywordCheck.missingKeywords, qualityCheckResult.keywordCheck.incorrectPlacement));
-    }
 
+      // const fixTasks: Promise<any>[] = [
+      //   qualityCheckResult.integrity_passed
+      //     ? Promise.resolve(null)
+      //     : integrityCheck(
+      //         resumeData,
+      //         qualityCheckResult.issues
+      //       ),
+      //   qualityCheckResult.ats_passed
+      //     ? Promise.resolve(null)
+      //     : atsFriendlyResolver(resumeData, qualityCheckResult.issues),
+      //   qualityCheckResult.keyword_passed
+      //     ? Promise.resolve(null)
+      //     : keywordPlacement(
+      //         resumeData,
+      //         qualityCheckResult.missingKeywords,
+      //         qualityCheckResult.incorrectPlacement
+      //       ),
+      // ];
 
-    const [integrityCheckResult, atsCheckResult, keywordCheckResult] = await Promise.all(functionCalls);
+      // const [integrityCheckResult, atsCheckResult, keywordCheckResult] =
+      //   await Promise.all(fixTasks);
 
-    const aggregateResult = await aggregate(integrityCheckResult, atsCheckResult, keywordCheckResult);
-    logger.info({ aggregateResult }, "Aggregate result");
-    return{
-      result: aggregateResult,
-      errors: [],
-      timeTaken: `${Date.now() - start}ms`
+      // const aggregateResult = await aggregate(
+      //   integrityCheckResult,
+      //   atsCheckResult,
+      //   keywordCheckResult
+      // );
+      // logger.info("----------- Ended Aggregate result-----------");
+
+      // output.result = aggregateResult;
+    } catch (err: any) {
+      logger.error({ err }, "Workflow encountered an unrecoverable error");
+      output.errors.push(err?.message as never);
+    } finally {
+      output.timeTaken = `${Date.now() - start}ms`;
+      return output;
     }
   }
-  catch (err: any) {
-    logger.error({ err }, "Workflow encountered an unrecoverable error");
-    output.errors.push(err?.message as never);
-  } finally {
-    output.timeTaken = `${Date.now() - start}ms`;
-    return output;
-  }
-});
+);
 
 export default workflow;

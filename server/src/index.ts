@@ -8,6 +8,7 @@ import path from "path";
 import puppeteer from "puppeteer";
 import fs from "fs";
 import { resumeBuilder, resumeBuilderWorkflow } from "./tools";
+import { getUnreadMessages } from "./telegram";
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -192,42 +193,55 @@ app.get("/jobs", async (req, res) => {
 
 //return resume
 app.get("/resume-builder", async (req, res) => {
-  const keywords = req.query.keywords as string[];
-  const resume = await resumeBuilderWorkflow.invoke({ resumeData, keywords:['nextjs', 'nodejs', 'redis'] });
+  try {
+    const keywords = (req.query.keywords as string).split(",");
 
-  console.log(resume);
-
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });
-
-  const page = await browser.newPage();
-
-  // Render the EJS template to HTML string
-  const html = await new Promise<string>((resolve, reject) => {
-    app.render('resume', { resume: resumeData }, (err, html) => {
-      if (err) reject(err);
-      else resolve(html);
+    const resume = await resumeBuilderWorkflow.invoke({
+      resumeData,
+      keywords: keywords,
     });
-  });
 
-  await page.setContent(html);
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
 
-  const pdfBuffer = await page.pdf({
-    format: "A4",
-    printBackground: true,
-    scale: 0.9,
-  });
+    const page = await browser.newPage();
 
-  await browser.close();
+    // Render the EJS template to HTML string
+    const html = await new Promise<string>((resolve, reject) => {
+      app.render("resume", { resume: resume.result }, (err, html) => {
+        if (err) reject(err);
+        else resolve(html);
+      });
+    });
 
-  res.set({
-    "Content-Type": "application/pdf",
-    "Content-Disposition": "inline; filename=resume.pdf",
-  });
+    await page.setContent(html);
 
-  res.end(pdfBuffer);
+    const pdfBuffer = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      margin: {
+        top: "0.5in",
+        bottom: "0.5in",
+        left: "0.5in",
+        right: "0.5in",
+      },
+      scale: 1.0, // use 1.0 for full size — scale < 1 may create extra blank space
+    });
+
+    await browser.close();
+
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": "inline; filename=resume.pdf",
+    });
+
+    res.end(pdfBuffer);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json(error);
+  }
 });
 
 const server = app.listen(PORT, () => {

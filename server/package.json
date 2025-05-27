@@ -13,6 +13,7 @@
   "license": "ISC",
   "description": "",
   "devDependencies": {
+    "@types/cors": "^2.8.18",
     "@types/express": "^5.0.1",
     "@types/node": "^22.13.14",
     "@types/node-schedule": "^2.1.7",
@@ -24,6 +25,7 @@
     "@langchain/anthropic": "^0.3.20",
     "@langchain/community": "^0.3.43",
     "@langchain/core": "^0.3.56",
+    "@langchain/groq": "^0.2.2",
     "@langchain/langgraph": "^0.2.72",
     "@langchain/ollama": "^0.2.0",
     "@types/intl-tel-input": "^18.1.4",
