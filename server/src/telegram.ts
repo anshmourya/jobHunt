@@ -246,9 +246,15 @@ const getUnreadMessages = async (channelUsernames: string[]) => {
                   );
                   const jobData = await parseJobPosting(msg.message);
 
-                  if (jobData) {
-                    console.log("Job data:", jobData);
-                    await workflow.invoke(jobData.applyLink);
+                  if (jobData?.isValidJob) {
+                    const validJob = jobData.jobs
+                      .map((job) => (job.applyLink ? job : null))
+                      .filter((job) => job !== null);
+                    if (validJob.length > 0) {
+                      await Promise.all(
+                        validJob.map((job) => workflow.invoke(job.applyLink))
+                      );
+                    }
                     // Add source information
                     return {
                       ...jobData,

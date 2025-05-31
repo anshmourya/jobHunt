@@ -1,6 +1,6 @@
 export const jobPostPrompt = `
 Parse job to JSON:
-{"company_name":"","position":"","keywords":["keyword should be skills, tools, technologies, and frameworks"],"important_details":[],"additional_info":{},"summary":""}
+{"company_name":"","position":"","keywords":["keyword should be skills, tools, technologies, and frameworks"],"important_details":[String],"additional_info":{},"summary":""}
 
 
 JOB_DESCRIPTION_HERE`;

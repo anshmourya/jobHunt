@@ -17,7 +17,7 @@ const logger = pino({ level: process.env.LOG_LEVEL ?? "info" });
 
 // Initialize a shared browser instance
 let sharedBrowser;
-async function getBrowser() {
+export async function getBrowser() {
   if (!sharedBrowser) {
     sharedBrowser = await puppeteer.launch({
       headless: true,
@@ -170,13 +170,18 @@ const summary = task("summary", async (input) => {
 });
 
 // push to database with error handling
-const pushToDatabase = task("pushToDatabase", async (data) => {
+const pushToDatabase = task("pushToDatabase", async (data: any) => {
   try {
+    if (!data || data.keywords?.length === 0) {
+      logger.warn("No data or no keywords provided");
+      return false;
+    }
     const job = new Job(data);
     await job.save();
     return true;
   } catch (error) {
-    logger.error({ error, data }, "Database save failed");
+    logger.error("Database save failed");
+    console.log(error);
     return false;
   }
 });

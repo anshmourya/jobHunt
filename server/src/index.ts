@@ -9,6 +9,7 @@ import puppeteer from "puppeteer";
 import { resumeBuilderWorkflow } from "./tools";
 import { getUnreadMessages } from "./telegram";
 import { resumeData } from "./helper/constant";
+import { scrapper } from "./tools/scrapper";
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -146,3 +147,7 @@ app.put("/update-job-status", async (req, res) => {
 // getUnreadMessages(["TechUprise_Updates", "jobs_and_internships_updates"]).then(
 //   (res) => console.log(res)
 // );
+
+// scrapper(
+//   "Find a Node.js job posted today on Indeed and extract title + apply link"
+// ).then((res) => console.log(res));

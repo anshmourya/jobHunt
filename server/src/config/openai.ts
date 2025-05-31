@@ -9,7 +9,8 @@ const system_prompt = `
 Extract job details from Telegram messages to JSON:
 
 {
-  "companyName": "company name or null",
+ isValidJob: true or false,
+ jobs:[{  "companyName": "company name or null",
   "position": "job title or null", 
   "experience": "years/level or null",
   "package": "salary/compensation or null",
@@ -18,8 +19,11 @@ Extract job details from Telegram messages to JSON:
   "applyLink": "application URL or null",
   "email": "contact email or null",
   "batchYear": "graduation years or null",
-  "deadline": "application deadline or null"
+  "deadline": "application deadline or null"}]
 }
+
+Rules:
+1. if the job description is look like it's not the job description then return {isValidJob: false}
 
 Message:
 """ MESSAGE_HERE """
