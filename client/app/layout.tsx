@@ -77,7 +77,14 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      appearance={{
+        layout: {
+          unsafe_disableDevelopmentModeWarnings:
+            process.env.NODE_ENV !== "development",
+        },
+      }}
+    >
       <html lang="en" data-oid=":y100a4">
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
