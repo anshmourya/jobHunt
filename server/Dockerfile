@@ -5,14 +5,14 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
 
 WORKDIR /usr/src/app
 
-# Copy package files first for better Docker layer caching
-COPY package*.json ./
+# Copy package files with correct ownership
+COPY --chown=pptruser:pptruser package*.json ./
 
 # Install dependencies
 RUN npm install
 
-# Copy the rest of the application code
-COPY . .
+# Copy the rest of the application code with correct ownership
+COPY --chown=pptruser:pptruser . .
 
 # Build the application
 RUN npm run build
