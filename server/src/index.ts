@@ -129,6 +129,7 @@ app.get("/jobs", async (req, res) => {
 app.get("/resume-builder", async (req, res) => {
   try {
     const keywords = (req.query.keywords as string).split(",");
+    console.log("Keywords:", keywords);
 
     const pdfBuffer = await generateResume(keywords);
 
@@ -143,7 +144,6 @@ app.get("/resume-builder", async (req, res) => {
 
     res.end(pdfBuffer);
   } catch (error) {
-    0;
     console.log(error);
     res.status(500).json(error);
   }

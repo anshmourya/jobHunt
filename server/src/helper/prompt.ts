@@ -1,41 +1,66 @@
 export const jobPostPrompt = `
-Your task is to parse a job description and output a JSON object according to the specified structure below.
-
-JSON Structure:
+Extract key job information for ATS optimization. Return ONLY valid JSON:
 
 {
-  "company_name": "",
-  "position": "",
-  "keywords": ["keyword should be skills, tools, technologies, and frameworks"],
-  "important_details": [String],
-  "additional_info": {},
-  "summary": ""
+  "company_name": "string",
+  "position": "string", 
+  "keywords": ["8-12 ATS keywords from job description"],
+  "important_details": ["5-8 key requirements/responsibilities"],
+  "additional_info": {
+    "experience_level": "Entry/Junior/Mid/Senior/Executive",
+    "employment_type": "Full-time/Part-time/Contract/Remote",
+    "location": "string",
+    "salary_range": "string (if mentioned)",
+    "benefits": ["array"],
+    "company_size": "Startup/Small/Medium/Large",
+    "industry": "string"
+  },
+  "summary": "1-2 sentence role overview"
 }
-Parsing Guidelines:
 
-Extract company_name and position directly from the job description.
-Identify up to six keywords related to skills, tools, technologies, or frameworks, ensuring they are most relevant and friendly. Keywords should be one word or two words maximum.
-List any important_details as a string array that outlines essential job responsibilities or qualifications.
-Any other notable information from the job description should be placed under additional_info.
-Provide a brief summary of the job in one or two sentences after extracting relevant information.
-The job description to be parsed is provided below:
-“”"
-JOB_DESCRIPTION_HERE
-“”"
+KEYWORD RULES:
+- Extract exact terms from job description (case-sensitive)
+- Prioritize: tech skills, tools, frameworks, methodologies
+- Include both technical (React, AWS) and soft skills (Leadership, Agile)
+- Use 1-3 words max per keyword
+- Focus on terms mentioned multiple times
 
-Carefully analyze the text to populate the JSON object according to the guidelines and example structure given above.`;
+IMPORTANT DETAILS:
+- Extract must-have requirements and key responsibilities
+- Include experience years, education, certifications
+- Use action-oriented language
+`;
 
 export const generateResumeJson = `
-You are an expert resume optimizer. Generate an ATS-friendly JSON resume by following these instructions:
+You are an expert resume optimizer specializing in ATS (Applicant Tracking System) optimization. Generate a well-structured JSON resume that maximizes ATS compatibility while maintaining readability and professional quality.
 
-Maintain the original structure and field names as presented in the resume data.
-Integrate the provided keywords into relevant sections of the resume. Keywords are indicated by triple quotes: “”“KEYWORDS_HERE”“”
-Ensure the optimized resume is compliant with ATS (Applicant Tracking Systems) standards.
-Preserve the content integrity, ensuring that nothing vital is altered or removed.
-The original resume data is provided below, enclosed within triple quotes:
-“”“RESUME_DATA_HERE”“”
+## Instructions:
 
-Please return only the optimized JSON format of the resume.`;
+1. **Structure Preservation**: Maintain the exact JSON structure and field names from the original resume data
+2. **Keyword Integration**: Seamlessly integrate the provided keywords into relevant sections without keyword stuffing
+3. **ATS Optimization**: Ensure compliance with ATS standards by:
+   - Using standard section headers and field names
+   - Avoiding special characters that might cause parsing issues
+   - Maintaining consistent formatting throughout
+   - Using action verbs and quantifiable achievements
+4. **Content Integrity**: Preserve all essential information while enhancing clarity and impact
+5. **Professional Quality**: Ensure the resume reads naturally and maintains professional tone
+
+## Keyword Integration Guidelines:
+- Integrate keywords naturally into job descriptions, skills, and summary
+- Prioritize relevance over frequency
+- Use variations and synonyms where appropriate
+- Avoid awkward phrasing or obvious keyword stuffing
+
+## ATS Best Practices:
+- Use standard date formats (MM/YYYY or MM/DD/YYYY)
+- Include relevant technical skills in a dedicated section
+- Use consistent bullet point formatting
+- Ensure proper JSON escaping for special characters
+- Include quantifiable achievements and metrics where possible
+
+## Output Requirements:
+Return ONLY valid JSON without any additional text, comments, or formatting. The JSON should be properly escaped and ready for direct parsing.`;
 
 export const qualityCheckPrompt = `Check resume quality. Return:
 {"integrity_passed":true,"ats_passed":true,"keyword_passed":true,"issues":[]}

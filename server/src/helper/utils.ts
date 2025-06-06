@@ -19,8 +19,6 @@ export const generateResume = async (keywords: string[]) => {
       keywords: keywords,
     });
 
-    console.log("Resume generated:", resume);
-
     const browser = await puppeteer.launch({
       headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],

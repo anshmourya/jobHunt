@@ -143,15 +143,26 @@ const jobPostExtractor = task("jobPostExtractor", async (link: string) => {
 });
 
 export const getSummary = async (input: string) => {
-  const message = jobPostPrompt.replace("JOB_DESCRIPTION_HERE", String(input));
   try {
     const result = await retry(
       () =>
-        summaryModel.invoke(message, {
-          response_format: {
-            type: "json_object",
-          },
-        }),
+        summaryModel.invoke(
+          [
+            {
+              role: "system",
+              content: jobPostPrompt,
+            },
+            {
+              role: "user",
+              content: input,
+            },
+          ],
+          {
+            response_format: {
+              type: "json_object",
+            },
+          }
+        ),
       2,
       1000,
       true
@@ -246,11 +257,23 @@ const qualityCheck = task(
     try {
       const result = await retry(
         () =>
-          summaryModel.invoke(message, {
-            response_format: {
-              type: "json_object",
-            },
-          }),
+          summaryModel.invoke(
+            [
+              {
+                role: "system",
+                content: qualityCheckPrompt,
+              },
+              {
+                role: "user",
+                content: message,
+              },
+            ],
+            {
+              response_format: {
+                type: "json_object",
+              },
+            }
+          ),
         2,
         1000,
         true
@@ -271,13 +294,20 @@ const qualityCheck = task(
 export const resumeBuilder = task(
   "resumeBuilder",
   async (resumeData, keywords) => {
-    const message = generateResumeJson
-      .replace("RESUME_DATA_HERE", JSON.stringify(resumeData))
-      .replace("KEYWORDS_HERE", JSON.stringify(keywords));
+    const systemPrompt = {
+      role: "system",
+      content: generateResumeJson,
+    };
+    const userPrompt = {
+      role: "user",
+      content: `resumeData: ${JSON.stringify(
+        resumeData
+      )} keywords: ${JSON.stringify(keywords)}`,
+    };
     try {
       const result = await retry(
         () =>
-          summaryModel.invoke(message, {
+          summaryModel.invoke([systemPrompt, userPrompt], {
             response_format: {
               type: "json_object",
             },
@@ -452,53 +482,22 @@ export const resumeBuilderWorkflow = entrypoint(
 
     try {
       const generatedResume = await resumeBuilder(resumeData, keywords);
-      const qualityCheckResult = await qualityCheck(
-        resumeData,
-        generatedResume,
-        keywords
-      );
-
-      if (
-        qualityCheckResult.integrity_passed &&
-        qualityCheckResult.ats_passed &&
-        qualityCheckResult.keyword_passed &&
-        true //TODO: remove this
-      ) {
-        output.result = generatedResume;
-        output.timeTaken = `${Date.now() - start}ms`;
-        return output;
-      }
-
-      // const fixTasks: Promise<any>[] = [
-      //   qualityCheckResult.integrity_passed
-      //     ? Promise.resolve(null)
-      //     : integrityCheck(
-      //         resumeData,
-      //         qualityCheckResult.issues
-      //       ),
-      //   qualityCheckResult.ats_passed
-      //     ? Promise.resolve(null)
-      //     : atsFriendlyResolver(resumeData, qualityCheckResult.issues),
-      //   qualityCheckResult.keyword_passed
-      //     ? Promise.resolve(null)
-      //     : keywordPlacement(
-      //         resumeData,
-      //         qualityCheckResult.missingKeywords,
-      //         qualityCheckResult.incorrectPlacement
-      //       ),
-      // ];
-
-      // const [integrityCheckResult, atsCheckResult, keywordCheckResult] =
-      //   await Promise.all(fixTasks);
-
-      // const aggregateResult = await aggregate(
-      //   integrityCheckResult,
-      //   atsCheckResult,
-      //   keywordCheckResult
+      // const qualityCheckResult = await qualityCheck(
+      //   resumeData,
+      //   generatedResume,
+      //   keywords
       // );
-      // logger.info("----------- Ended Aggregate result-----------");
 
-      // output.result = aggregateResult;
+      // if (
+      //   qualityCheckResult.integrity_passed &&
+      //   qualityCheckResult.ats_passed &&
+      //   qualityCheckResult.keyword_passed &&
+      //   true //TODO: remove this
+      // ) {
+      // }
+      output.result = generatedResume;
+      output.timeTaken = `${Date.now() - start}ms`;
+      return output;
     } catch (err: any) {
       logger.error({ err }, "Workflow encountered an unrecoverable error");
       output.errors.push(err?.message as never);
