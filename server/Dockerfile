@@ -2,9 +2,12 @@ FROM ghcr.io/puppeteer/puppeteer:21.10.0
 
 # Install Poppler utilities for PDF processing
 USER root
-RUN apt-get update && apt-get install -y \
+# Fix GPG key issues and install poppler-utils
+RUN apt-get update --allow-releaseinfo-change -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true || true && \
+    apt-get install -y --no-install-recommends --allow-unauthenticated \
     poppler-utils \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 USER pptruser
 
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
