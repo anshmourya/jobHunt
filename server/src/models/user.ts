@@ -7,10 +7,7 @@ const userSchema = new mongoose.Schema(
       email: { type: String, required: true },
       phone: { type: String },
       location: { type: String },
-      links: {
-        linkedin: { type: String },
-        behance: { type: String },
-      },
+      links: Object, // { linkedin: string; behance: string }s
     },
     summary: { type: String },
     experience: [
@@ -31,7 +28,7 @@ const userSchema = new mongoose.Schema(
         achievements: { type: String },
       },
     ],
-    skills: Object,
+    skills: Object, // { frontend: string[]; backend: string[]; databases: string[]; devops: string[]; tools: string[] }
     projects: [
       {
         name: { type: String, required: true },
@@ -40,6 +37,7 @@ const userSchema = new mongoose.Schema(
         url: { type: String },
       },
     ],
+    clerk_id: { type: String, required: true },
   },
   {
     timestamps: true,
@@ -48,4 +46,6 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-export const User = mongoose.model("User", userSchema);
+const User = mongoose.model("User", userSchema);
+
+export default User;

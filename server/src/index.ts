@@ -9,7 +9,7 @@ import { getSummary } from "./tools";
 import { resumeData } from "./helper/constant";
 import { generateResume, upload } from "./helper/utils";
 import { uploadResumeToSupabase } from "./config/supabase";
-import { clerkMiddleware, requireAuth } from "@clerk/express";
+import { clerkMiddleware, getAuth, requireAuth } from "@clerk/express";
 // import "./corn/index";
 import { getUnreadMessages } from "./telegram";
 import {
@@ -20,6 +20,7 @@ import {
 import { extractResumeDataFromPdfPrompt } from "./helper/prompt";
 import fs from "fs";
 import { Poppler } from "node-poppler";
+import User from "./models/user";
 const poppler = new Poppler();
 const app = express();
 app.use(cors());
@@ -167,85 +168,100 @@ app.put("/update-job-status", async (req, res) => {
 });
 
 //extract data from resume pdf
-app.post("/extract-resume-image", upload.single("resume"), async (req, res) => {
-  try {
-    const { file } = req;
+app.post(
+  "/extract-resume-image",
+  requireAuth(),
+  upload.single("resume"),
+  async (req, res) => {
+    try {
+      const user = getAuth(req).userId;
 
-    if (!file) {
-      return res.status(400).json({ error: "No file uploaded" });
-    }
+      const { file } = req;
 
-    const pdfPath = path.join(__dirname, "temp.pdf");
-    fs.writeFileSync(pdfPath, file.buffer);
+      if (!file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
 
-    const outputDir = path.join(__dirname, "output");
-    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
+      const pdfPath = path.join(__dirname, "temp.pdf");
+      fs.writeFileSync(pdfPath, file.buffer);
 
-    const outputFile = path.join(outputDir, "page");
+      const outputDir = path.join(__dirname, "output");
+      if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
 
-    const options = {
-      firstPageToConvert: 1,
-      lastPageToConvert: 1,
-      jpegFile: true,
-    };
+      const outputFile = path.join(outputDir, "page");
 
-    // Use pdfToCairo with jpegFile: true to get JPEG output
-    await poppler.pdfToCairo(pdfPath, outputFile, options);
+      const options = {
+        firstPageToConvert: 1,
+        lastPageToConvert: 1,
+        jpegFile: true,
+      };
 
-    const imagePath = `${outputFile}-1.jpg`; // Poppler appends page number
-    const imageBuffer = fs.readFileSync(imagePath);
-    const base64Image = imageBuffer.toString("base64");
+      // Use pdfToCairo with jpegFile: true to get JPEG output
+      await poppler.pdfToCairo(pdfPath, outputFile, options);
 
-    // Clean up
-    fs.unlinkSync(pdfPath);
-    fs.unlinkSync(imagePath);
+      const imagePath = `${outputFile}-1.jpg`; // Poppler appends page number
+      const imageBuffer = fs.readFileSync(imagePath);
+      const base64Image = imageBuffer.toString("base64");
 
-    const result = {
-      image_base64: base64Image,
-      data_url: `data:image/jpeg;base64,${base64Image}`,
-    };
+      // Clean up
+      fs.unlinkSync(pdfPath);
+      fs.unlinkSync(imagePath);
 
-    //send to groq
-    const groqResponse = await getVisionCompletion([
-      {
-        role: "system",
-        content: extractResumeDataFromPdfPrompt,
-      },
-      {
-        role: "user",
-        content: [
-          {
-            type: "image_url",
-            image_url: {
-              url: result.data_url,
+      const result = {
+        image_base64: base64Image,
+        data_url: `data:image/jpeg;base64,${base64Image}`,
+      };
+
+      //send to groq
+      const groqResponse = await getVisionCompletion([
+        {
+          role: "system",
+          content: extractResumeDataFromPdfPrompt,
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: {
+                url: result.data_url,
+              },
             },
-          },
-        ],
-      },
-    ]);
+          ],
+        },
+      ]);
 
-    return res.json({
-      message: "Send this to Groq's multimodal model in image_url input.",
-      data:
+      const resumeData =
         typeof groqResponse.choices[0].message.content === "string"
           ? JSON.parse(groqResponse.choices[0].message.content)
-          : groqResponse.choices[0].message.content,
-    });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Failed to convert PDF to image" });
+          : groqResponse.choices[0].message.content;
+
+      if (!resumeData) {
+        return res.status(400).json({ error: "Failed to extract resume data" });
+      }
+
+      // check user exists
+      const userExists = await User.findById(user);
+      if (!userExists) {
+        //create user
+        const newUser = await User.create({
+          clerk_id: user,
+          ...resumeData,
+        });
+      }
+
+      return res.json({
+        message: "Send this to Groq's multimodal model in image_url input.",
+        data: resumeData,
+      });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Failed to convert PDF to image" });
+    }
   }
-});
+);
 
 keepServerAlive();
-
-// getUnreadMessages(["TechUprise_Updates", "jobs_and_internships_updates"]).then(
-//   (res) => console.log(res)
-// );
-
-// scrapper(
-//   "Find a Node.js job posted today on Indeed and extract title + apply link"
-// ).then((res) => console.log(res));
 
 app.listen(PORT, () => {
   connectDB().then(() => {
