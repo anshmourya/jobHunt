@@ -1,0 +1,268 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= resume.name %> - Resume</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Open Sans", sans-serif;
+        font-size: <%= resume.textSize || "11px" %>;
+        line-height: 1.25;
+      }
+
+      @page {
+        size: A4;
+        margin: 0.5in;
+      }
+
+      @media print {
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: auto;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  *, *::before, *::after {
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  section, div, .break-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .text-sm {
+    font-size: 11px !important;
+  }
+
+  .p-4, .px-8, .py-6 {
+    padding: 0.5rem !important;
+  }
+
+  .mb-4, .mb-6, .mb-8 {
+    margin-bottom: 0.5rem !important;
+  }
+
+  .mt-4, .mt-6, .mt-8 {
+    margin-top: 0.5rem !important;
+  }
+}
+
+
+      h1,
+      h2 {
+        margin: 0;
+        padding: 0;
+      }
+
+      section {
+        margin-bottom: 12px;
+        break-inside: avoid;
+      }
+
+      ul {
+        margin-top: 4px;
+        margin-bottom: 0;
+      }
+
+      li {
+        margin-bottom: 2px;
+      }
+    </style>
+  </head>
+  <body
+    class="mx-auto text-gray-800"
+    style="font-size: <%= resume.textSize || '13px' %>"
+  >
+    <!-- Header Section -->
+    <header class="mb-2">
+      <h1 class="text-2xl font-bold text-blue-900"><%= resume.name %></h1>
+      <div class="flex flex-wrap text-sm text-gray-600 mt-1 space-x-1">
+        <a
+          href="<%= resume.links.github %>"
+          class="text-blue-600 hover:underline"
+          >Github</a
+        >
+        <span>|</span>
+        <a
+          href="<%= resume.links.linkedin %>"
+          class="text-blue-600 hover:underline"
+          >LinkedIn</a
+        >
+        <span>|</span>
+        <a
+          href="<%= resume.links.twitter %>"
+          class="text-blue-600 hover:underline"
+          >Twitter</a
+        >
+        <span>|</span>
+        <a
+          href="<%= resume.links.portfolio %>"
+          class="text-blue-600 hover:underline"
+          >Portfolio</a
+        >
+      </div>
+      <div class="mt-1 text-sm text-gray-600">
+        <span><%= resume.phone %></span>
+        <span>|</span>
+        <a
+          href="mailto:<%= resume.email %>"
+          class="text-blue-600 hover:underline"
+          >Mail</a
+        >
+        <span>|</span>
+        <span><%= resume.location %></span>
+      </div>
+    </header>
+
+    <!-- Summary Section -->
+    <section class="mb-2">
+      <h2
+        class="text-lg font-semibold text-blue-900 border-b border-gray-300 pb-1 mb-2"
+      >
+        Summary
+      </h2>
+      <p
+        class="leading-relaxed"
+        style="font-size: <%= resume.textSize || '13px' %>"
+      >
+        <%= resume.summary %>
+      </p>
+    </section>
+
+    <!-- Experience Section -->
+    <section class="mb-2">
+      <h2
+        class="text-lg font-semibold text-blue-900 border-b border-gray-300 pb-1 mb-2"
+      >
+        Experience
+      </h2>
+      <% for (const job of resume.experience) { %>
+      <div class="mb-4">
+        <div class="flex justify-between mb-1">
+          <div
+            class="font-semibold text-sm"
+            style="font-size: <%= resume.textSize || '13px' %>"
+          >
+            <%= job.company %> - <%= job.location %> | <%= job.role %>
+          </div>
+          <div
+            class="text-sm text-gray-600"
+            style="font-size: <%= resume.textSize || '13px' %>"
+          >
+            <%= job.duration %>
+          </div>
+        </div>
+        <ul
+          class="list-disc list-inside text-sm space-y-1"
+          style="font-size: <%= resume.textSize || '13px' %>"
+        >
+          <% for (const point of job.points) { %>
+          <li><%= point %></li>
+          <% } %>
+        </ul>
+      </div>
+      <% } %>
+    </section>
+
+    <!-- Projects Section -->
+    <section class="mb-2">
+      <h2
+        class="text-lg font-semibold text-blue-900 border-b border-gray-300 pb-1 mb-2"
+      >
+        Projects
+      </h2>
+      <% for (const project of resume.projects) { %>
+      <div class="mb-4">
+        <div class="flex justify-between mb-1">
+          <div
+            class="font-semibold text-sm"
+            style="font-size: <%= resume.textSize || '13px' %>"
+          >
+            <%= project.title %> |
+            <a href="<%= project.link %>" class="text-blue-600 hover:underline"
+              >Link</a
+            >
+          </div>
+          <div
+            class="text-sm text-gray-600"
+            style="font-size: <%= resume.textSize || '13px' %>"
+          >
+            <%= project.duration %>
+          </div>
+        </div>
+        <ul
+          class="list-disc list-inside text-sm space-y-1"
+          style="font-size: <%= resume.textSize || '13px' %>"
+        >
+          <% for (const point of project.points) { %>
+          <li><%= point %></li>
+          <% } %>
+        </ul>
+      </div>
+      <% } %>
+    </section>
+
+    <!-- Education Section -->
+    <section class="mb-2">
+      <h2
+        class="text-lg font-semibold text-blue-900 border-b border-gray-300 pb-1 mb-2"
+      >
+        Education
+      </h2>
+      <% for (const edu of resume.education) { %>
+      <div
+        class="flex justify-between mb-1 text-sm"
+        style="font-size: <%= resume.textSize || '13px' %>"
+      >
+        <div class="font-semibold">
+          <%= edu.institution %> | <%= edu.location %> | <%= edu.degree %>
+        </div>
+        <div class="text-gray-600"><%= edu.year %></div>
+      </div>
+      <% } %>
+    </section>
+
+    <!-- Technical Skills Section -->
+    <section class="mb-2">
+      <h2
+        class="text-lg font-semibold text-blue-900 border-b border-gray-300 pb-1 mb-2"
+      >
+        Technical
+      </h2>
+      <div
+        class="text-sm space-y-1"
+        style="font-size: <%= resume.textSize || '13px' %>"
+      >
+        <div>
+          <strong>Frontend:</strong> <% for (const skill of
+          resume.technical.frontend) { %> <%= skill %>, <% } %>
+        </div>
+        <div>
+          <strong>Backend:</strong> <% for (const skill of
+          resume.technical.backend) { %> <%= skill %>, <% } %>
+        </div>
+        <div>
+          <strong>Database:</strong> <% for (const skill of
+          resume.technical.database) { %> <%= skill %>, <% } %>
+        </div>
+        <div>
+          <strong>Tools:</strong> <% for (const skill of resume.technical.tools)
+          { %> <%= skill %>, <% } %>
+        </div>
+      </div>
+    </section>
+  </body>
+</html>
