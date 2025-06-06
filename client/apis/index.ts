@@ -5,25 +5,41 @@ export const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL;
 const defaultAxios = Axios.create({
   baseURL: baseUrl,
   headers: {
-    "Content-type": "application/json", //
+    "Content-type": "application/json",
   },
 });
+
 defaultAxios.interceptors.response.use(
-  (res) => {
-    return res;
-  },
-  (err) => {
-    return Promise.reject(err);
-  }
+  (res) => res,
+  (err) => Promise.reject(err)
 );
 
-export function apiClient(
+/**
+ * Fetches an authentication token from the server.
+ *
+ * @returns {Promise<string | null>} A promise that resolves to the authentication token if successful, or null if an error occurs.s
+ */
+async function getAuthToken() {
+  try {
+    const response = await fetch("/api/auth");
+    const data = await response.json();
+    return data.token;
+  } catch (error) {
+    console.error("Failed to get auth token:", error);
+    return null;
+  }
+}
+
+export async function apiClient(
   method: string,
   url: string,
   options: AxiosRequestConfig<unknown> = {}
 ) {
   const { data = {}, headers = {}, params = {}, ...rest } = options;
-  //   headers.Authorization = `Bearer ${cookies.get("token")}`;
+  const token = await getAuthToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
   return defaultAxios({
     url,
     data,

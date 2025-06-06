@@ -2,9 +2,7 @@
 import useJobApi from "@/apis/job";
 import JobsTable from "@/components/jobs-table";
 import { useQuery } from "@tanstack/react-query";
-import { JobDescriptionDialog } from "@/components/job-description-dialog";
-import { Button } from "@/components/ui/button";
-import { ResumeUploadDialog } from "@/components/resume-upload-dialog";
+import { Badge } from "@/components/ui/badge";
 
 export default function Page() {
   const { getJobs } = useJobApi();
@@ -15,13 +13,13 @@ export default function Page() {
   });
 
   return (
-    <div className=" mx-auto py-10">
+    <div className=" mx-auto py-10 container">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Job Applications Tracker</h1>
-        <div className="flex gap-2">
-          <JobDescriptionDialog trigger={<Button>Generate Resume</Button>} />
-          <ResumeUploadDialog trigger={<Button>Upload Resume</Button>} />
-        </div>
+        <Badge variant="outline" className="text-sm">
+          {data?.length ?? 0}{" "}
+          {data?.length === 1 ? "application" : "applications"}
+        </Badge>
       </div>
       <JobsTable jobs={data ?? []} />
     </div>

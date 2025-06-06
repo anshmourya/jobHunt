@@ -156,12 +156,6 @@ export default function JobCards({ jobs }: { jobs: Job[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between mb-6">
-        <Badge variant="outline" className="text-sm">
-          {jobs.length} {jobs.length === 1 ? "application" : "applications"}
-        </Badge>
-      </div>
-
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {jobs.map((job) => {
           const statusStyle = statusConfig[job.status];

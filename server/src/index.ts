@@ -9,6 +9,7 @@ import { getSummary } from "./tools";
 import { resumeData } from "./helper/constant";
 import { generateResume, upload } from "./helper/utils";
 import { uploadResumeToSupabase } from "./config/supabase";
+import { clerkMiddleware, requireAuth } from "@clerk/express";
 // import "./corn/index";
 import { getUnreadMessages } from "./telegram";
 import {
@@ -25,6 +26,7 @@ app.use(cors());
 app.use(express.json());
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
+app.use(clerkMiddleware());
 
 // Health check
 app.get("/health", (req, res) => {
@@ -115,7 +117,7 @@ app.post("/jd-resume", async (req, res) => {
 });
 
 //return all job
-app.get("/jobs", async (req, res) => {
+app.get("/jobs", requireAuth(), async (req, res) => {
   try {
     const jobs = await Job.find().sort({ createdAt: -1 });
     console.log("Jobs found:", jobs.length);
