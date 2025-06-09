@@ -16,26 +16,43 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://job-hunt.live";
+const SITE_NAME = "JobHunt";
+const SITE_DESCRIPTION =
+  "Find your dream job with JobHunt - The ultimate job search platform with AI-powered resume optimization and personalized job matching.";
+
 export const metadata: Metadata = {
-  title: "JobHunt - Find Your Dream Job",
-  description:
-    "Discover the latest job opportunities and advance your career with JobHunt. Find remote, full-time, and part-time jobs from top companies.",
+  title: {
+    default: "JobHunt - AI-Powered Job Search & Resume Optimization",
+    template: `%s | ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
   keywords: [
-    "jobs",
-    "career",
+    "job hunt",
+    "resume optimizer",
+    "job search",
+    "career opportunities",
     "employment",
     "hiring",
-    "job search",
     "job portal",
     "remote jobs",
+    "job application tracker",
+    "AI resume builder",
+    "ATS resume checker",
+    "professional resume",
   ],
   authors: [{ name: "JobHunt Team" }],
+  creator: "JobHunt",
+  publisher: "JobHunt",
+  metadataBase: new URL(SITE_URL),
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
-    title: "JobHunt - Find Your Dream Job",
-    description:
-      "Discover the latest job opportunities and advance your career with JobHunt.",
-    url: "https://jobhunt.example.com",
-    siteName: "JobHunt",
+    title: "JobHunt - AI-Powered Job Search & Resume Optimization",
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+    siteName: SITE_NAME,
     locale: "en_US",
     type: "website",
     images: [
@@ -49,10 +66,10 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "JobHunt - Find Your Dream Job",
-    description:
-      "Discover the latest job opportunities and advance your career with JobHunt.",
-    images: ["/og-image.jpg"],
+    title: "JobHunt - AI-Powered Job Search & Resume Optimization",
+    description: SITE_DESCRIPTION,
+    images: [`${SITE_URL}/og-image.jpg`],
+    creator: "@jobhunt",
   },
   robots: {
     index: true,
@@ -66,9 +83,16 @@ export const metadata: Metadata = {
     },
   },
   icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon-16x16.png",
-    apple: "/apple-touch-icon.png",
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: [
+      { url: "/apple-touch-icon.png" },
+      { url: "/safari-pinned-tab.svg", rel: "mask-icon" },
+    ],
   },
   manifest: "/site.webmanifest",
 };

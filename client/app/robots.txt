@@ -1,0 +1,28 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+
+Sitemap: https://job-hunt.live/sitemap.xml
+
+# Disallow admin and API routes
+Disallow: /api/
+Disallow: /_next/
+Disallow: /_error
+
+# Crawl-delay: 10
+
+# Allow all bots to crawl the website
+User-agent: *
+Allow: /
+
+# Googlebot specific rules
+User-agent: Googlebot
+Allow: /
+
+# Bingbot specific rules
+User-agent: bingbot
+Allow: /
+
+# DuckDuckBot specific rules
+User-agent: DuckDuckBot
+Allow: /
