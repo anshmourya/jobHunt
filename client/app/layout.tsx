@@ -57,7 +57,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/og-image.jpg",
+        url: "/favicon-32x32.png",
         width: 1200,
         height: 630,
         alt: "JobHunt - Find Your Dream Job",
@@ -68,7 +68,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "JobHunt - AI-Powered Job Search & Resume Optimization",
     description: SITE_DESCRIPTION,
-    images: [`${SITE_URL}/og-image.jpg`],
+    images: [`${SITE_URL}/favicon-32x32.png`],
     creator: "@jobhunt",
   },
   robots: {
@@ -84,15 +84,10 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/favicon.ico" },
-      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon.ico", type: "image/x-icon" },
+      { url: "/favicon.ico", sizes: "any" },
     ],
-    shortcut: "/favicon.ico",
-    apple: [
-      { url: "/apple-touch-icon.png" },
-      { url: "/safari-pinned-tab.svg", rel: "mask-icon" },
-    ],
+    apple: [{ url: "/apple-touch-icon.png" }],
   },
   manifest: "/site.webmanifest",
 };
