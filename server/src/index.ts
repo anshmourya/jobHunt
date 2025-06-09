@@ -23,6 +23,7 @@ import { Poppler } from "node-poppler";
 import User from "./models/user";
 import console from "console";
 import { scrapper } from "./tools/scrapper";
+
 const poppler = new Poppler();
 const app = express();
 app.use(cors());
@@ -30,6 +31,9 @@ app.use(express.json());
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.use(clerkMiddleware());
+
+import userRoutes from "./routes/user";
+app.use("/v1/users", userRoutes);
 
 // Health check
 app.get("/health", (req, res) => {

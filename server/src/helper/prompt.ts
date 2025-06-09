@@ -266,7 +266,7 @@ Return a clean JSON object with the following structure. Include only the fields
 ## Example Output Format:
 \`\`\`json
 {
-  "personal_info": {
+  "personalInfo": {
     "name": "John Doe",
     "title": "Senior Software Engineer",
     "email": "john.doe@example.com",

@@ -1,52 +1,32 @@
-import { headers } from 'next/headers';
-
-export async function POST(req: Request) {
-  // Get Hook0 webhook URL from environment variables
-  const HOOK0_WEBHOOK_URL = process.env.HOOK0_WEBHOOK_URL;
-  
-  if (!HOOK0_WEBHOOK_URL) {
-    console.error('HOOK0_WEBHOOK_URL is not set in environment variables');
-    return new Response('Server configuration error', { status: 500 });
-  }
-
-  // Get the headers for verification
-  const headerPayload = await headers();
-  const svix_id = headerPayload.get("svix-id") ?? '';
-  const svix_timestamp = headerPayload.get("svix-timestamp") ?? '';
-  const svix_signature = headerPayload.get("svix-signature") ?? '';
-
-  // Get the raw body as text
-  const payload = await req.text();
-
-  // Forward the webhook to Hook0
+import { verifyWebhook } from "@clerk/nextjs/webhooks";
+import { NextRequest } from "next/server";
+import { createUser } from "@/apis/user";
+export async function POST(req: NextRequest) {
   try {
-    const webhookType = headerPayload.get('webhook-type') ?? 'unknown';
-    
-    const response = await fetch(HOOK0_WEBHOOK_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Clerk-Event': webhookType,
-        'X-Clerk-Webhook-Signature': svix_signature,
-        'X-Clerk-Webhook-Timestamp': svix_timestamp,
-        'X-Clerk-Webhook-Id': svix_id
-      },
-      body: payload // Forward the raw payload
-    });
+    const evt = await verifyWebhook(req);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Failed to forward webhook to Hook0:', errorText);
-      return new Response(`Failed to forward webhook: ${errorText}`, { 
-        status: response.status 
+    // Do something with payload
+    // For this guide, log payload to console
+    const { id } = evt.data;
+    const eventType = evt.type;
+    console.log(
+      `Received webhook with ID ${id} and event type of ${eventType}`
+    );
+
+    //if user is created
+    if (eventType === "user.created") {
+      console.log("User created:", evt.data);
+      const { id } = evt.data;
+      await createUser({
+        clerkId: id,
+        email: evt.data.email_addresses[0].email_address,
+        name: evt.data.first_name + " " + evt.data.last_name,
       });
     }
 
-    return new Response('Webhook forwarded to Hook0', { status: 200 });
-  } catch (error) {
-    console.error('Error forwarding webhook to Hook0:', error);
-    return new Response('Error occurred while processing webhook', {
-      status: 500
-    });
+    return new Response("Webhook received", { status: 200 });
+  } catch (err) {
+    console.error("Error verifying webhook:", err);
+    return new Response("Error verifying webhook", { status: 400 });
   }
 }
