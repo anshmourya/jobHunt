@@ -263,17 +263,17 @@ app.post(
   }
 );
 
-// keepServerAlive();
+app.listen(PORT, () => {
+  connectDB().then(() => {
+    console.log("MongoDB connected");
+  });
+  console.log(`Server is running on port ${PORT}`);
+});
 
-// app.listen(PORT, () => {
-//   connectDB().then(() => {
-//     console.log("MongoDB connected");
-//   });
-//   console.log(`Server is running on port ${PORT}`);
-// });
+keepServerAlive();
 
-scrapper("goto levitation website and scrape the HR mail and ceo name").then(
-  (res) => {
-    console.log(res);
-  }
-);
+// scrapper("goto levitation website and scrape the HR mail and ceo name").then(
+//   (res) => {
+//     console.log(res);
+//   }
+// );
