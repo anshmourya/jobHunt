@@ -7,7 +7,7 @@ import Job from "./models/job";
 import path from "path";
 import { getSummary } from "./tools";
 import { resumeData } from "./helper/constant";
-import { generateResume, upload } from "./helper/utils";
+import { generateResume, getJsonResume, upload } from "./helper/utils";
 import { uploadResumeToSupabase } from "./config/supabase";
 import { clerkMiddleware, getAuth, requireAuth } from "@clerk/express";
 // import "./corn/index";
@@ -180,89 +180,79 @@ app.post(
   upload.single("resume"),
   async (req, res) => {
     try {
-      const user = getAuth(req).userId;
-
       const { file } = req;
 
       if (!file) {
         return res.status(400).json({ error: "No file uploaded" });
       }
 
-      const pdfPath = path.join(__dirname, "temp.pdf");
-      fs.writeFileSync(pdfPath, file.buffer);
-
-      const outputDir = path.join(__dirname, "output");
-      if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
-
-      const outputFile = path.join(outputDir, "page");
-
-      const options = {
-        firstPageToConvert: 1,
-        lastPageToConvert: 1,
-        jpegFile: true,
-      };
-
-      // Use pdfToCairo with jpegFile: true to get JPEG output
-      await poppler.pdfToCairo(pdfPath, outputFile, options);
-
-      const imagePath = `${outputFile}-1.jpg`; // Poppler appends page number
-      const imageBuffer = fs.readFileSync(imagePath);
-      const base64Image = imageBuffer.toString("base64");
-
-      // Clean up
-      fs.unlinkSync(pdfPath);
-      fs.unlinkSync(imagePath);
-
-      const result = {
-        image_base64: base64Image,
-        data_url: `data:image/jpeg;base64,${base64Image}`,
-      };
-
-      //send to groq
-      const groqResponse = await getVisionCompletion([
-        {
-          role: "system",
-          content: extractResumeDataFromPdfPrompt,
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "image_url",
-              image_url: {
-                url: result.data_url,
-              },
-            },
-          ],
-        },
-      ]);
-
-      const resumeData =
-        typeof groqResponse.choices[0].message.content === "string"
-          ? JSON.parse(groqResponse.choices[0].message.content)
-          : groqResponse.choices[0].message.content;
+      const resumeData = await getJsonResume(file);
 
       if (!resumeData) {
         return res.status(400).json({ error: "Failed to extract resume data" });
       }
 
-      // check user exists
-      const userExists = await User.findById(user);
-      if (!userExists) {
-        //create user
-        const newUser = await User.create({
-          clerk_id: user,
-          ...resumeData,
-        });
-      }
-
       return res.json({
-        message: "Send this to Groq's multimodal model in image_url input.",
+        message: "Success.",
         data: resumeData,
       });
     } catch (err) {
       console.error(err);
       return res.status(500).json({ error: "Failed to convert PDF to image" });
+    }
+  }
+);
+
+// Make profile from resume
+app.post(
+  "/make-profile",
+  requireAuth(),
+  upload.single("resume"),
+  async (req, res) => {
+    try {
+      const { file } = req;
+      const userId = getAuth(req).userId;
+
+      if (!file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      // Extract resume data
+      const resumeData = await getJsonResume(file);
+      if (!resumeData) {
+        return res.status(400).json({ error: "Failed to extract resume data" });
+      }
+
+      // Find or create user
+      let user = await User.findOne({ clerkId: userId });
+
+      if (!user) {
+        // Create new user if doesn't exist
+        user = new User({
+          clerkId: userId,
+          ...resumeData,
+          profileCompletedPercentage: 80, // Set initial completion percentage
+        });
+      } else {
+        // Update existing user
+        user.set({
+          ...resumeData,
+          profileCompletedPercentage: 80, // Update completion percentage
+        });
+      }
+
+      await user.save();
+
+      return res.json({
+        message: "Profile updated successfully",
+        data: user,
+      });
+    } catch (err) {
+      console.error("Error in make-profile:", err);
+      return res.status(500).json({
+        error: "Failed to process profile",
+        details: (err as Error).message,
+      });
     }
   }
 );

@@ -1,4 +1,6 @@
 import { apis } from ".";
+import { AxiosError } from "axios";
+import { IUser } from "../types/user.types";
 
 export const createUser = async (user: {
   clerkId: string;
@@ -14,6 +16,46 @@ export const createUser = async (user: {
     console.error(error);
   }
 };
-const useUserApi = () => {};
+const useUserApi = () => {
+  const makeProfile = async (file: File) => {
+    try {
+      const formData = new FormData();
+      formData.append("resume", file);
+
+      const response = await apis.post("/make-profile", {
+        data: formData,
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error("Error making profile:", error);
+      if (error && typeof error === "object" && "isAxiosError" in error) {
+        // Now TypeScript knows this is an AxiosError
+        const axiosError = error as AxiosError<{ message?: string }>;
+        throw new Error(
+          axiosError.response?.data?.message ?? "Failed to make profile"
+        );
+      }
+      throw error;
+    }
+  };
+
+  const getMyProfile = async (): Promise<IUser> => {
+    try {
+      const { data } = await apis.get("v1/users/my-profile");
+      return data.data;
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
+  };
+  return {
+    makeProfile,
+    getMyProfile,
+  };
+};
 
 export default useUserApi;

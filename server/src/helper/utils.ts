@@ -4,7 +4,12 @@ import { resumeData } from "./constant";
 import express from "express";
 import path from "path";
 import multer from "multer";
+import fs from "fs";
+import { getVisionCompletion } from "../config/ollama";
+import { extractResumeDataFromPdfPrompt } from "../helper/prompt";
+import { Poppler } from "node-poppler";
 
+const poppler = new Poppler();
 const app = express();
 // Configure view engine and views directory
 app.set("view engine", "ejs");
@@ -51,6 +56,68 @@ export const generateResume = async (keywords: string[]) => {
     await browser.close();
 
     return pdfBuffer;
+  } catch (error) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getJsonResume = async (file: Express.Multer.File) => {
+  try {
+    const pdfPath = path.join(__dirname, "temp.pdf");
+    fs.writeFileSync(pdfPath, file.buffer);
+
+    const outputDir = path.join(__dirname, "output");
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
+
+    const outputFile = path.join(outputDir, "page");
+
+    const options = {
+      firstPageToConvert: 1,
+      lastPageToConvert: 1,
+      jpegFile: true,
+    };
+
+    // Use pdfToCairo with jpegFile: true to get JPEG output
+    await poppler.pdfToCairo(pdfPath, outputFile, options);
+
+    const imagePath = `${outputFile}-1.jpg`; // Poppler appends page number
+    const imageBuffer = fs.readFileSync(imagePath);
+    const base64Image = imageBuffer.toString("base64");
+
+    // Clean up
+    fs.unlinkSync(pdfPath);
+    fs.unlinkSync(imagePath);
+
+    const result = {
+      image_base64: base64Image,
+      data_url: `data:image/jpeg;base64,${base64Image}`,
+    };
+
+    //send to groq
+    const groqResponse = await getVisionCompletion([
+      {
+        role: "system",
+        content: extractResumeDataFromPdfPrompt,
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "image_url",
+            image_url: {
+              url: result.data_url,
+            },
+          },
+        ],
+      },
+    ]);
+
+    const resumeData =
+      typeof groqResponse.choices[0].message.content === "string"
+        ? JSON.parse(groqResponse.choices[0].message.content)
+        : groqResponse.choices[0].message.content;
+    return resumeData;
   } catch (error) {
     console.log(error);
     throw error;

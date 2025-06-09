@@ -272,6 +272,7 @@ Return a clean JSON object with the following structure. Include only the fields
     "email": "john.doe@example.com",
     "phone": "+1 (555) 123-4567",
     "location": "San Francisco, CA, USA",
+    "title": "Senior Software Engineer",
     "links": {
       "linkedin": "linkedin.com/in/johndoe",
       "github": "github.com/johndoe"

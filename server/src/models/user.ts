@@ -7,7 +7,8 @@ const userSchema = new mongoose.Schema(
       email: { type: String, required: true },
       phone: { type: String },
       location: { type: String },
-      links: Object, // { linkedin: string; behance: string }s
+      links: Object, // { linkedin: string; behance: string }
+      title: { type: String },
     },
     summary: { type: String },
     experience: [
@@ -38,6 +39,7 @@ const userSchema = new mongoose.Schema(
       },
     ],
     clerkId: { type: String, required: true, unique: true },
+    profileCompletedPercentage: { type: Number, default: 0 },
   },
   {
     timestamps: true,
