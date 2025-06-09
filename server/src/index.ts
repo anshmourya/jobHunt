@@ -21,6 +21,8 @@ import { extractResumeDataFromPdfPrompt } from "./helper/prompt";
 import fs from "fs";
 import { Poppler } from "node-poppler";
 import User from "./models/user";
+import console from "console";
+import { scrapper } from "./tools/scrapper";
 const poppler = new Poppler();
 const app = express();
 app.use(cors());
@@ -261,11 +263,17 @@ app.post(
   }
 );
 
-keepServerAlive();
+// keepServerAlive();
 
-app.listen(PORT, () => {
-  connectDB().then(() => {
-    console.log("MongoDB connected");
-  });
-  console.log(`Server is running on port ${PORT}`);
-});
+// app.listen(PORT, () => {
+//   connectDB().then(() => {
+//     console.log("MongoDB connected");
+//   });
+//   console.log(`Server is running on port ${PORT}`);
+// });
+
+scrapper("goto levitation website and scrape the HR mail and ceo name").then(
+  (res) => {
+    console.log(res);
+  }
+);

@@ -68,3 +68,120 @@ const storage = multer.diskStorage({
 });
 
 export const upload = multer({ storage: multer.memoryStorage() });
+
+// =const extract = tool(
+//   async ({ selector }: { selector: string }): Promise<string> => {
+//     const page = await getSharedPage();
+//     if (!page) throw new Error("No page found");
+
+//     try {
+//       // Wait for the page to be ready
+//       await page.waitForSelector("body", { timeout: 10000 }).catch(() => {});
+//       await delay(2000); // Give time for dynamic content to load
+
+//       // Get page readiness info
+//       const pageInfo = await page.evaluate(() => ({
+//         readyState: document.readyState,
+//         bodyExists: !!document.body,
+//         hasContent: document.body ? document.body.children.length > 0 : false,
+//       }));
+
+//       console.log("Page info:", pageInfo);
+
+//       let content = "";
+
+//       if (selector === "body" || selector === "html") {
+//         // For body/html, get all text content
+//         content = await page.evaluate(() => {
+//           // Remove script, style, and other non-content elements
+//           const elementsToRemove = [
+//             "script",
+//             "style",
+//             "noscript",
+//             "meta",
+//             "link",
+//           ];
+//           elementsToRemove.forEach((tag) => {
+//             const elements = document.querySelectorAll(tag);
+//             elements.forEach((el) => el.remove());
+//           });
+
+//           // Get text content from body
+//           const body = document.body;
+//           if (body) {
+//             // Try multiple methods to get text content
+//             return body.innerText || body.textContent || "";
+//           }
+
+//           // Fallback to document
+//           return (
+//             document.documentElement.innerText ||
+//             document.documentElement.textContent ||
+//             ""
+//           );
+//         });
+//       } else {
+//         // For specific selectors
+//         try {
+//           await page.waitForSelector(selector, { timeout: 10000 });
+//           const element = await page.$(selector);
+
+//           if (element) {
+//             content = await page.evaluate((el) => {
+//               return el.textContent || el.innerHTML || "";
+//             }, element);
+//           } else {
+//             throw new Error(`Element with selector "${selector}" not found`);
+//           }
+//         } catch (selectorError) {
+//           throw new Error(
+//             `Failed to find element with selector "${selector}": ${selectorError}`
+//           );
+//         }
+//       }
+
+//       // Clean up the content
+//       content = content.trim();
+
+//       if (!content) {
+//         // Try one more fallback method
+//         content = await page.evaluate(() => {
+//           const walker = document.createTreeWalker(
+//             document.body,
+//             NodeFilter.SHOW_TEXT,
+//             { acceptNode: () => NodeFilter.FILTER_ACCEPT }
+//           );
+
+//           let textContent = "";
+//           let node;
+
+//           while ((node = walker.nextNode())) {
+//             if (node.textContent && node.textContent.trim()) {
+//               textContent += node.textContent.trim() + " ";
+//             }
+//           }
+
+//           return textContent.trim();
+//         });
+//       }
+
+//       if (!content) {
+//         throw new Error(`No content found for selector "${selector}"`);
+//       }
+
+//       console.log(
+//         `Successfully extracted ${content.length} characters of content`
+//       );
+//       return content;
+//     } catch (error) {
+//       console.error(`Extract error for selector "${selector}":`, error);
+//       throw new Error(`Failed to extract content from ${selector}: ${error}`);
+//     }
+//   },
+//   {
+//     name: "extract",
+//     description:
+//       "Extract text content from a selector (use 'body' for full page content)",
+//     schema: z.object({ selector: z.string() }),
+//   }
+// );
