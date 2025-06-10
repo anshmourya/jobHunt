@@ -26,72 +26,84 @@ const Header = () => {
         <Logo />
 
         <div className="flex items-center space-x-4">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                className="relative h-9 w-9 rounded-full p-0 hover:bg-muted"
-              >
-                <Avatar className="h-9 w-9">
-                  <AvatarImage
-                    src={user?.imageUrl}
-                    alt={user?.fullName ?? "User"}
+          <div className="space-y-1">
+            <JobDescriptionDialog
+              trigger={
+                <Button className="w-full justify-start text-sm font-normal px-2 h-8">
+                  <FileText className="h-4 w-4" />
+                  <span>Generate Resume</span>
+                </Button>
+              }
+            />
+          </div>
+          <div className="flex items-center space-x-4">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="relative h-9 w-9 rounded-full p-0 hover:bg-muted"
+                >
+                  <Avatar className="h-9 w-9">
+                    <AvatarImage
+                      src={user?.imageUrl}
+                      alt={user?.fullName ?? "User"}
+                    />
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      {userInitials ?? <User className="h-4 w-4" />}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="sr-only">Toggle user menu</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-2" align="end" sideOffset={8}>
+                <div className="px-2 py-1.5">
+                  <p className="text-sm font-medium truncate">
+                    {user?.fullName ?? "User"}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {user?.primaryEmailAddress?.emailAddress ?? "User"}
+                  </p>
+                </div>
+
+                <Separator className="my-1" />
+
+                <div className="space-y-1">
+                  <JobDescriptionDialog
+                    trigger={
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-sm font-normal px-2 h-8"
+                      >
+                        <FileText className="h-4 w-4" />
+                        <span>Generate Resume</span>
+                      </Button>
+                    }
                   />
-                  <AvatarFallback className="bg-primary/10 text-primary">
-                    {userInitials ?? <User className="h-4 w-4" />}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="sr-only">Toggle user menu</span>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-56 p-2" align="end" sideOffset={8}>
-              <div className="px-2 py-1.5">
-                <p className="text-sm font-medium truncate">
-                  {user?.fullName ?? "User"}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {user?.primaryEmailAddress?.emailAddress ?? "User"}
-                </p>
-              </div>
+                </div>
 
-              <Separator className="my-1" />
+                <Link
+                  href="/profile"
+                  className="w-full justify-start text-sm font-normal px-2 h-8 flex items-center gap-2 hover:bg-accent hover:text-accent-foreground"
+                >
+                  <LinkIcon className="h-4 w-4" />
+                  <span>Profile</span>
+                </Link>
 
-              <div className="space-y-1">
-                <JobDescriptionDialog
-                  trigger={
+                <Separator className="my-1" />
+
+                <div className="p-2">
+                  <SignOutButton>
                     <Button
                       variant="ghost"
-                      className="w-full justify-start text-sm font-normal px-2 h-8"
+                      className="w-full justify-start text-sm font-normal px-2 h-8 text-destructive hover:text-destructive"
                     >
-                      <FileText className="h-4 w-4" />
-                      <span>Generate Resume</span>
+                      Sign out
                     </Button>
-                  }
-                />
-              </div>
-
-              <Link
-                href="/profile"
-                className="w-full justify-start text-sm font-normal px-2 h-8 flex items-center gap-2 hover:bg-accent hover:text-accent-foreground"
-              >
-                <LinkIcon className="h-4 w-4" />
-                <span>Profile</span>
-              </Link>
-
-              <Separator className="my-1" />
-
-              <div className="p-2">
-                <SignOutButton>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-sm font-normal px-2 h-8 text-destructive hover:text-destructive"
-                  >
-                    Sign out
-                  </Button>
-                </SignOutButton>
-              </div>
-            </PopoverContent>
-          </Popover>
+                  </SignOutButton>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
       </div>
     </header>
