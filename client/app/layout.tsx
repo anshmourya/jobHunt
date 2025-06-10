@@ -4,7 +4,6 @@ import "./globals.css";
 import ReactQueryProvider from "@/hook/react-query";
 import { Toaster } from "react-hot-toast";
 import { ClerkProvider } from "@clerk/nextjs";
-import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 
 const geistSans = Geist({
