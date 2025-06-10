@@ -17,7 +17,7 @@ export interface IEducation {
   degree: string;
   institution: string;
   location?: string;
-  year?: number;
+  year?: string;
   achievements?: string;
   _id?: string;
 }
@@ -49,6 +49,7 @@ export interface IUser {
   summary?: string;
   experience: IExperience[];
   education: IEducation[];
+  links?: ILink;
   skills?: ISkills;
   projects: IProject[];
   clerkId: string;

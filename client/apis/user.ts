@@ -52,9 +52,21 @@ const useUserApi = () => {
       throw error;
     }
   };
+
+  const updateProfile = async (user: IUser) => {
+    try {
+      const response = await apis.put("v1/users/update-profile", {
+        data: { ...user },
+      });
+      return response.data;
+    } catch (error) {
+      console.error(error);
+    }
+  };
   return {
     makeProfile,
     getMyProfile,
+    updateProfile,
   };
 };
 

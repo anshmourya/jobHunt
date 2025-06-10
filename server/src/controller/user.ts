@@ -29,3 +29,20 @@ export const getMyProfile = async (req: any, res: any) => {
     res.status(500).json({ error: error as string });
   }
 };
+
+export const updateProfile = async (req: any, res: any) => {
+  try {
+    const userId = getAuth(req).userId;
+    const user = await User.findOne({ clerkId: userId });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    user.set({
+      ...req.body,
+    });
+    await user.save();
+    res.status(200).json({ message: "User updated successfully", data: user });
+  } catch (error) {
+    res.status(500).json({ error: error as string });
+  }
+};

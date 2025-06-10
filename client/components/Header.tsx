@@ -1,15 +1,15 @@
 "use client";
 
 import React from "react";
-import { FileText, Upload, User } from "lucide-react";
+import { FileText, Link as LinkIcon, User } from "lucide-react";
 import { SignOutButton, useUser } from "@clerk/nextjs";
 import Logo from "./Logo";
 import { Button } from "./ui/button";
 import { JobDescriptionDialog } from "./job-description-dialog";
-import { ResumeUploadDialog } from "./resume-upload-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Separator } from "./ui/separator";
+import Link from "next/link";
 
 const Header = () => {
   const { user } = useUser();
@@ -63,23 +63,20 @@ const Header = () => {
                       variant="ghost"
                       className="w-full justify-start text-sm font-normal px-2 h-8"
                     >
-                      <FileText className="mr-2 h-4 w-4" />
+                      <FileText className="h-4 w-4" />
                       <span>Generate Resume</span>
                     </Button>
                   }
                 />
-                <ResumeUploadDialog
-                  trigger={
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start text-sm font-normal px-2 h-8"
-                    >
-                      <Upload className="mr-2 h-4 w-4" />
-                      <span>Upload Resume</span>
-                    </Button>
-                  }
-                />
               </div>
+
+              <Link
+                href="/profile"
+                className="w-full justify-start text-sm font-normal px-2 h-8 flex items-center gap-2 hover:bg-accent hover:text-accent-foreground"
+              >
+                <LinkIcon className="h-4 w-4" />
+                <span>Profile</span>
+              </Link>
 
               <Separator className="my-1" />
 

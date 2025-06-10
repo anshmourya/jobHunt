@@ -16,10 +16,16 @@ import {
   Cpu,
   FileX,
   Plus,
+  LucideIcon,
 } from "lucide-react";
 import { ResumeUploadDialog } from "@/components/resume-upload-dialog";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import useUserApi from "@/apis/user";
+import { AxiosError } from "axios";
+import toast from "react-hot-toast";
+import { IUser } from "@/types/user.types";
+import EditProfile from "@/components/edit-profile";
+import { useQueryClient } from "@tanstack/react-query";
 
 // Empty state component
 function EmptyState({
@@ -29,7 +35,7 @@ function EmptyState({
   actionText,
   onAction,
 }: {
-  icon: any;
+  icon: LucideIcon;
   title: string;
   description: string;
   actionText?: string;
@@ -55,12 +61,30 @@ function EmptyState({
 }
 
 export default function ProfilePage() {
-  const { getMyProfile } = useUserApi();
+  const queryClient = useQueryClient();
+  const { getMyProfile, updateProfile } = useUserApi();
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ["profile"],
     queryFn: getMyProfile,
   });
+
+  const updateMutation = useMutation({
+    mutationFn: updateProfile,
+    onSuccess: () => {
+      toast.success("Profile updated successfully!");
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+    },
+    onError: (error: AxiosError<{ message?: string }>) => {
+      const message = error?.response?.data?.message;
+      toast.error(message ?? "Failed to update profile");
+    },
+  });
+
+  const handleUpdateProfile = async (data: IUser) => {
+    if (!profile || !data) return;
+    updateMutation.mutate(data);
+  };
 
   if (!profile || isLoading) {
     return <div>Loading...</div>;
@@ -99,11 +123,16 @@ export default function ProfilePage() {
             requestType="generate"
             trigger={
               <Button variant="outline">
-                <span>Update Resume</span>
+                <span>Update Profile By AI</span>
               </Button>
             }
           />
-          <Button>Download Resume</Button>
+          <EditProfile
+            profile={profile}
+            trigger={<Button>Edit Profile</Button>}
+            onSave={handleUpdateProfile}
+            isSubmitting={updateMutation.isPending}
+          />
         </div>
       </div>
 
