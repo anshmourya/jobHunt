@@ -25,7 +25,7 @@ const userSchema = new mongoose.Schema(
         degree: { type: String, required: true },
         institution: { type: String, required: true },
         location: { type: String },
-        year: { type: Number },
+        year: { type: String },
         achievements: { type: String },
       },
     ],

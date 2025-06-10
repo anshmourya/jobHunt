@@ -117,6 +117,7 @@ export const getJsonResume = async (file: Express.Multer.File) => {
       typeof groqResponse.choices[0].message.content === "string"
         ? JSON.parse(groqResponse.choices[0].message.content)
         : groqResponse.choices[0].message.content;
+    console.log(resumeData);
     return resumeData;
   } catch (error) {
     console.log(error);

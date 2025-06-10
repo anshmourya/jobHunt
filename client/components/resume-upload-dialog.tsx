@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -18,8 +18,10 @@ import { UploadCloud, Loader2 } from "lucide-react";
 import useJobApi from "@/apis/job";
 import toast from "react-hot-toast";
 import { AxiosError } from "axios";
+import useUserApi from "@/apis/user";
 
 interface ResumeUploadDialogProps {
+  requestType: "upload" | "generate";
   trigger: React.ReactNode;
   onSuccess?: (data: {
     url: string;
@@ -30,23 +32,31 @@ interface ResumeUploadDialogProps {
 }
 
 export function ResumeUploadDialog({
+  requestType,
   trigger,
   onSuccess,
 }: ResumeUploadDialogProps) {
+  const queryClient = useQueryClient();
   const [open, setOpen] = React.useState(false);
   const { uploadResume } = useJobApi();
+  const { makeProfile } = useUserApi();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
-      return await uploadResume(file);
+      if (requestType === "upload") {
+        return await uploadResume(file);
+      } else {
+        return await makeProfile(file);
+      }
     },
     onSuccess: (data) => {
       toast.success("Resume uploaded successfully!");
       setOpen(false);
       setSelectedFile(null);
       onSuccess?.(data);
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
     },
     onError: (error: AxiosError<{ message?: string }>) => {
       const message = error?.response?.data?.message;
