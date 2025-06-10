@@ -35,21 +35,12 @@ app.use(clerkMiddleware());
 import userRoutes from "./routes/user";
 app.use("/v1/users", userRoutes);
 
-// Health check
-app.get("/health", (req, res) => {
-  res.send("OK");
-});
-
-// Ping endpoint
-app.get("/ping", (req, res) => {
-  res.send("OK");
-});
-
 const PORT = process.env.PORT ?? 5001;
 
 const keepServerAlive = () => {
+  console.log("Initializing keep-alive mechanism...");
   // Array of endpoints to ping
-  const endpoints = ["/health", "/ping"];
+  const endpoints = ["/health", "/keep-alive"];
 
   // Random interval between 4-5 minutes (avoiding exact 5-minute intervals)
   const getRandomInterval = () => 4 * 60 * 1000 + Math.random() * (60 * 1000);
@@ -57,11 +48,23 @@ const keepServerAlive = () => {
   // Ping random endpoint
   const pingServer = () => {
     const endpoint = endpoints[Math.floor(Math.random() * endpoints.length)];
-    const serverUrl = process.env.SERVER_URL ?? "http://localhost:5001";
+    const serverUrl = process.env.SERVER_URL ?? `http://localhost:${PORT}`;
 
-    axios.get(`${serverUrl}${endpoint}`).catch((error) => {
-      console.log(`Keep-alive request to ${endpoint} failed:`, error.message);
-    });
+    console.log(
+      `Pinging ${serverUrl}${endpoint} at ${new Date().toISOString()}`
+    );
+
+    axios
+      .get(`${serverUrl}${endpoint}`)
+      .then(() => {
+        console.log(`Successfully pinged ${endpoint}`);
+      })
+      .catch((error) => {
+        console.error(
+          `Keep-alive request to ${endpoint} failed:`,
+          error.message
+        );
+      });
 
     // Schedule next ping with random interval
     setTimeout(pingServer, getRandomInterval());
@@ -70,6 +73,14 @@ const keepServerAlive = () => {
   // Start the first ping
   pingServer();
 };
+
+app.get("/keep-alive", (req, res) => {
+  res.send("OK");
+});
+
+app.get("/health", (req, res) => {
+  res.send("OK");
+});
 
 app.get("/resume-view", (req, res) => {
   res.render("resume", { resume: resumeData });
@@ -260,14 +271,8 @@ app.post(
 app.listen(PORT, () => {
   connectDB().then(() => {
     console.log("MongoDB connected");
+    keepServerAlive();
+    console.log("Keep-alive mechanism started");
   });
   console.log(`Server is running on port ${PORT}`);
 });
-
-keepServerAlive();
-
-// scrapper("goto levitation website and scrape the HR mail and ceo name").then(
-//   (res) => {
-//     console.log(res);
-//   }
-// );
