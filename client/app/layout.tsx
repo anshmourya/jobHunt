@@ -3,8 +3,9 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ReactQueryProvider from "@/hook/react-query";
 import { Toaster } from "react-hot-toast";
-import { ClerkProvider, SignedIn, SignedOut, SignIn } from "@clerk/nextjs";
-import Header from "@/components/Header";
+import { ClerkProvider } from "@clerk/nextjs";
+import Header from "@/components/layout/header";
+import Footer from "@/components/layout/footer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -106,20 +107,13 @@ export default function RootLayout({
     >
       <html lang="en" data-oid=":y100a4">
         <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+          className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
           data-oid="9pp4prn"
         >
-          <SignedOut>
-            <section className="h-dvh w-dvw grid place-items-center">
-              <SignIn />
-            </section>
-          </SignedOut>
-          <SignedIn>
-            <ReactQueryProvider>
-              <Header />
-              {children}
-            </ReactQueryProvider>
-          </SignedIn>
+          <main className="flex-1">
+            <ReactQueryProvider>{children}</ReactQueryProvider>
+          </main>
+          <Footer />
           <Toaster position="bottom-right" />
         </body>
       </html>
