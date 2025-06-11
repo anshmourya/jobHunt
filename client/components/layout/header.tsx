@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, Briefcase } from "lucide-react";
 import { useState, useEffect } from "react";
+import { UserMenu } from "@/components/user-menu";
 
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -52,12 +53,7 @@ export default function Header() {
           ))}
         </nav>
         <div className="hidden items-center gap-4 md:flex">
-          <Button variant="outline" asChild>
-            <Link href="/login">Log In</Link>
-          </Button>
-          <Button asChild>
-            <Link href="/signup">Sign Up Free</Link>
-          </Button>
+          <UserMenu />
         </div>
         <Sheet>
           <SheetTrigger asChild className="md:hidden">
@@ -85,12 +81,7 @@ export default function Header() {
                 </Link>
               ))}
               <div className="mt-4 grid gap-2">
-                <Button variant="outline" asChild className="w-full">
-                  <Link href="/login">Log In</Link>
-                </Button>
-                <Button asChild className="w-full">
-                  <Link href="/signup">Sign Up Free</Link>
-                </Button>
+                <UserMenu />
               </div>
             </div>
           </SheetContent>

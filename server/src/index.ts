@@ -7,22 +7,19 @@ import Job from "./models/job";
 import path from "path";
 import { getSummary } from "./tools";
 import { resumeData } from "./helper/constant";
-import { generateResume, getJsonResume, upload } from "./helper/utils";
+import {
+  generateResume,
+  getJsonResume,
+  setProfilePercentage,
+  upload,
+} from "./helper/utils";
 import { uploadResumeToSupabase } from "./config/supabase";
 import { clerkMiddleware, getAuth, requireAuth } from "@clerk/express";
 // import "./corn/index";
 import { getUnreadMessages } from "./telegram";
-import {
-  functionModel,
-  getVisionCompletion,
-  summaryModel,
-} from "./config/ollama";
-import { extractResumeDataFromPdfPrompt } from "./helper/prompt";
-import fs from "fs";
 import { Poppler } from "node-poppler";
 import User from "./models/user";
 import console from "console";
-import { scrapper } from "./tools/scrapper";
 
 const poppler = new Poppler();
 const app = express();
@@ -71,7 +68,7 @@ const keepServerAlive = () => {
   };
 
   // Start the first ping
-  pingServer();
+  pingServer(); //
 };
 
 app.get("/keep-alive", (req, res) => {
@@ -236,19 +233,20 @@ app.post(
 
       // Find or create user
       let user = await User.findOne({ clerkId: userId });
+      let percentage = setProfilePercentage(resumeData);
 
       if (!user) {
         // Create new user if doesn't exist
         user = new User({
           clerkId: userId,
           ...resumeData,
-          profileCompletedPercentage: 80, // Set initial completion percentage
+          profileCompletedPercentage: percentage,
         });
       } else {
         // Update existing user
         user.set({
           ...resumeData,
-          profileCompletedPercentage: 80, // Update completion percentage
+          profileCompletedPercentage: percentage,
         });
       }
 

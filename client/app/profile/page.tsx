@@ -158,19 +158,29 @@ export default function ProfilePage() {
             </a>
           </div>
           {personalInfo?.links &&
-            Object.entries(personalInfo.links).map(([key, value]) => (
-              <div key={key} className="flex items-center gap-2">
-                <ExternalLink className="h-4 w-4 text-muted-foreground" />
-                <a
-                  href={value as string}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:underline"
-                >
-                  {key}
-                </a>
-              </div>
-            ))}
+            Object.entries(personalInfo.links).map(([key, value]) => {
+              // Format URL to ensure it has a protocol
+              const formatUrl = (url: string | undefined): string => {
+                if (!url || typeof url !== "string") return "";
+                return url.startsWith("http") ? url : `https://${url}`;
+              };
+
+              const url = formatUrl(value);
+
+              return (
+                <div key={key} className="flex items-center gap-2">
+                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:underline"
+                  >
+                    {key}
+                  </a>
+                </div>
+              );
+            })}
         </CardContent>
       </Card>
 

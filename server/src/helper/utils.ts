@@ -8,6 +8,7 @@ import fs from "fs";
 import { getVisionCompletion } from "../config/ollama";
 import { extractResumeDataFromPdfPrompt } from "../helper/prompt";
 import { Poppler } from "node-poppler";
+import User from "../models/user";
 
 const poppler = new Poppler();
 const app = express();
@@ -125,131 +126,141 @@ export const getJsonResume = async (file: Express.Multer.File) => {
   }
 };
 
-//multer
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "uploads/");
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + "-" + file.originalname);
-  },
-});
-
 export const upload = multer({ storage: multer.memoryStorage() });
 
-// =const extract = tool(
-//   async ({ selector }: { selector: string }): Promise<string> => {
-//     const page = await getSharedPage();
-//     if (!page) throw new Error("No page found");
+//get resume data from the user profile
+export const getResumeData = async (clerkId: string) => {
+  try {
+    const user = await User.findOne({ clerkId });
 
-//     try {
-//       // Wait for the page to be ready
-//       await page.waitForSelector("body", { timeout: 10000 }).catch(() => {});
-//       await delay(2000); // Give time for dynamic content to load
+    if (!user) {
+      throw new Error(`User with clerkId ${clerkId} not found`);
+    }
 
-//       // Get page readiness info
-//       const pageInfo = await page.evaluate(() => ({
-//         readyState: document.readyState,
-//         bodyExists: !!document.body,
-//         hasContent: document.body ? document.body.children.length > 0 : false,
-//       }));
+    const {
+      _id,
+      profileCompletedPercentage,
+      createdAt,
+      updatedAt,
+      __v,
+      ...resumeData
+    } = user.toObject();
 
-//       console.log("Page info:", pageInfo);
+    return resumeData;
+  } catch (error) {
+    console.error("Error in getResumeData:", error);
+    throw error;
+  }
+};
 
-//       let content = "";
+//set profile percentage
+//set profile percentage
+export const setProfilePercentage = (profile: any): number => {
+  try {
+    const weights = {
+      personalInfo: {
+        name: 8,
+        email: 8,
+        phone: 4,
+        location: 4,
+        title: 4,
+      },
+      summary: 10,
+      experience: {
+        hasEntries: 10,
+        perEntry: 5, // Max 2 entries (10 points)
+        hasAchievements: 5, // Per experience entry
+      },
+      education: {
+        hasEntries: 10,
+        perEntry: 5, // Max 2 entries (10 points)
+        hasAchievements: 3, // Per education entry
+      },
+      skills: {
+        hasSkills: 10,
+        perCategory: 3, // Max 3 categories (9 points)
+        perSkill: 0.5, // Max 5 skills per category (7.5 points)
+      },
+      projects: {
+        hasProjects: 10,
+        perProject: 5, // Max 2 projects (10 points)
+      },
+    };
 
-//       if (selector === "body" || selector === "html") {
-//         // For body/html, get all text content
-//         content = await page.evaluate(() => {
-//           // Remove script, style, and other non-content elements
-//           const elementsToRemove = [
-//             "script",
-//             "style",
-//             "noscript",
-//             "meta",
-//             "link",
-//           ];
-//           elementsToRemove.forEach((tag) => {
-//             const elements = document.querySelectorAll(tag);
-//             elements.forEach((el) => el.remove());
-//           });
+    let percentage = 0;
 
-//           // Get text content from body
-//           const body = document.body;
-//           if (body) {
-//             // Try multiple methods to get text content
-//             return body.innerText || body.textContent || "";
-//           }
+    // Personal Info (Max 28%)
+    if (profile.personalInfo) {
+      const { name, email, phone, location, title } = weights.personalInfo;
+      if (profile.personalInfo.name) percentage += name;
+      if (profile.personalInfo.email) percentage += email;
+      if (profile.personalInfo.phone) percentage += phone;
+      if (profile.personalInfo.location) percentage += location;
+      if (profile.personalInfo.title) percentage += title;
+    }
 
-//           // Fallback to document
-//           return (
-//             document.documentElement.innerText ||
-//             document.documentElement.textContent ||
-//             ""
-//           );
-//         });
-//       } else {
-//         // For specific selectors
-//         try {
-//           await page.waitForSelector(selector, { timeout: 10000 });
-//           const element = await page.$(selector);
+    // Summary (Max 10%)
+    if (profile.summary?.trim() !== "") percentage += weights.summary;
 
-//           if (element) {
-//             content = await page.evaluate((el) => {
-//               return el.textContent || el.innerHTML || "";
-//             }, element);
-//           } else {
-//             throw new Error(`Element with selector "${selector}" not found`);
-//           }
-//         } catch (selectorError) {
-//           throw new Error(
-//             `Failed to find element with selector "${selector}": ${selectorError}`
-//           );
-//         }
-//       }
+    // Experience (Max 25%)
+    if (profile.experience?.length > 0) {
+      percentage += weights.experience.hasEntries;
+      // Add points for up to 2 experience entries
+      const expEntries = profile.experience.slice(0, 2);
+      percentage += expEntries.length * weights.experience.perEntry;
 
-//       // Clean up the content
-//       content = content.trim();
+      // Add points for achievements in each entry
+      expEntries.forEach((exp: any) => {
+        if (exp.achievements?.length > 0) {
+          percentage += weights.experience.hasAchievements;
+        }
+      });
+    }
 
-//       if (!content) {
-//         // Try one more fallback method
-//         content = await page.evaluate(() => {
-//           const walker = document.createTreeWalker(
-//             document.body,
-//             NodeFilter.SHOW_TEXT,
-//             { acceptNode: () => NodeFilter.FILTER_ACCEPT }
-//           );
+    // Education (Max 21%)
+    if (profile.education?.length > 0) {
+      percentage += weights.education.hasEntries;
+      // Add points for up to 2 education entries
+      const eduEntries = profile.education.slice(0, 2);
+      percentage += eduEntries.length * weights.education.perEntry;
 
-//           let textContent = "";
-//           let node;
+      // Add points for achievements in each entry
+      eduEntries.forEach((edu: any) => {
+        if (edu.achievements) {
+          percentage += weights.education.hasAchievements;
+        }
+      });
+    }
 
-//           while ((node = walker.nextNode())) {
-//             if (node.textContent && node.textContent.trim()) {
-//               textContent += node.textContent.trim() + " ";
-//             }
-//           }
+    // Skills (Max 26.5%)
+    if (profile.skills) {
+      percentage += weights.skills.hasSkills;
+      const skillCategories = Object.keys(profile.skills);
 
-//           return textContent.trim();
-//         });
-//       }
+      // Add points for skill categories (up to 3)
+      const categoriesToCount = Math.min(skillCategories.length, 3);
+      percentage += categoriesToCount * weights.skills.perCategory;
 
-//       if (!content) {
-//         throw new Error(`No content found for selector "${selector}"`);
-//       }
+      // Add points for skills within each category (up to 5 per category)
+      skillCategories.slice(0, 3).forEach((category) => {
+        const skills = profile.skills[category] || [];
+        const skillsToCount = Math.min(skills.length, 5);
+        percentage += skillsToCount * weights.skills.perSkill;
+      });
+    }
 
-//       console.log(
-//         `Successfully extracted ${content.length} characters of content`
-//       );
-//       return content;
-//     } catch (error) {
-//       console.error(`Extract error for selector "${selector}":`, error);
-//       throw new Error(`Failed to extract content from ${selector}: ${error}`);
-//     }
-//   },
-//   {
-//     name: "extract",
-//     description:
-//       "Extract text content from a selector (use 'body' for full page content)",
-//     schema: z.object({ selector: z.string() }),
-//   }
-// );
+    // Projects (Max 20%)
+    if (profile.projects?.length > 0) {
+      percentage += weights.projects.hasProjects;
+      // Add points for up to 2 projects
+      const projectsToCount = Math.min(profile.projects.length, 2);
+      percentage += projectsToCount * weights.projects.perProject;
+    }
+
+    // Cap at 100%
+    return Math.min(Math.round(percentage), 100);
+  } catch (error) {
+    console.error("Error in setProfilePercentage:", error);
+    throw error;
+  }
+};

@@ -21,7 +21,7 @@ export default function LoginPage() {
               dividerLine: "bg-border",
               dividerText: "text-muted-foreground",
               formFieldInput:
-                "border-input bg-background hover:border-primary/50", 
+                "border-input bg-background hover:border-primary/50",
               formButtonPrimary:
                 "bg-primary hover:bg-primary/90 text-primary-foreground",
               footerActionText: "text-muted-foreground",
