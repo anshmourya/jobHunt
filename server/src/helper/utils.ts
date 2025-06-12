@@ -1,6 +1,5 @@
 import puppeteer from "puppeteer";
 import { resumeBuilderWorkflow } from "../tools";
-import { resumeData } from "./constant";
 import express from "express";
 import path from "path";
 import multer from "multer";
@@ -15,11 +14,12 @@ const app = express();
 // Configure view engine and views directory
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "../views"));
-export const generateResume = async (keywords: string[]) => {
+export const generateResume = async (clerkId: string, keywords: string[]) => {
   try {
     if (!keywords) {
       throw new Error("Invalid data");
     }
+    const resumeData = await getResumeData(clerkId);
     const resume = await resumeBuilderWorkflow.invoke({
       resumeData,
       keywords: keywords,
@@ -146,7 +146,20 @@ export const getResumeData = async (clerkId: string) => {
       ...resumeData
     } = user.toObject();
 
-    return resumeData;
+    let result = {
+      name: resumeData.personalInfo?.name,
+      email: resumeData.personalInfo?.email,
+      phone: resumeData.personalInfo?.phone,
+      location: resumeData.personalInfo?.location,
+      title: resumeData.personalInfo?.title,
+      summary: resumeData.summary,
+      experience: resumeData.experience,
+      education: resumeData.education,
+      skills: resumeData.skills,
+      projects: resumeData.projects,
+    };
+
+    return result;
   } catch (error) {
     console.error("Error in getResumeData:", error);
     throw error;

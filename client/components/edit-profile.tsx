@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog";
 import { Drawer, DrawerTrigger, DrawerContent } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ import { ScrollArea } from "./ui/scroll-area";
 import { Textarea } from "./ui/textarea";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { profileSchema } from "@/validation/profile.validation";
+import { TagInput } from "./tag-input";
 
 interface EditProfileProps {
   profile: IUser;
@@ -109,7 +110,7 @@ const EditProfile: React.FC<EditProfileProps> = ({
   const onSubmit = (formData: IFormData) => {
     // Convert links array to object
     const links: Record<string, string> = {};
-    console.log(formData.linksArray);
+
     if (formData.linksArray && Array.isArray(formData.linksArray)) {
       formData.linksArray.forEach((link) => {
         if (link.key) links[link.key] = link.value;
@@ -146,6 +147,7 @@ const EditProfile: React.FC<EditProfileProps> = ({
     if (!Array.isArray(updatedData.experience)) updatedData.experience = [];
     if (!Array.isArray(updatedData.projects)) updatedData.projects = [];
 
+    console.log(updatedData, experienceFields);
     onSave(updatedData);
     form.reset();
     setIsOpen(false);
@@ -305,6 +307,7 @@ const EditProfile: React.FC<EditProfileProps> = ({
                     institution: "",
                     location: "",
                     year: "",
+                    achievements: [],
                   })
                 }
               >
@@ -371,6 +374,22 @@ const EditProfile: React.FC<EditProfileProps> = ({
                     />
                   </div>
                 </div>
+                <div className="space-y-2">
+                  <Label>Achievements</Label>
+                  <Controller
+                    name={`education.${index}.achievements`}
+                    control={control}
+                    render={({ field }) => (
+                      <TagInput
+                        tags={field.value || []}
+                        onTagsChange={(newAchievements) => {
+                          field.onChange(newAchievements);
+                        }}
+                        placeholder="Add an achievement (e.g., Graduated with honors)"
+                      />
+                    )}
+                  />
+                </div>
               </div>
             ))}
           </CardContent>
@@ -391,6 +410,7 @@ const EditProfile: React.FC<EditProfileProps> = ({
                     company: "",
                     location: "",
                     duration: "",
+                    achievements: [],
                   })
                 }
               >
@@ -465,6 +485,26 @@ const EditProfile: React.FC<EditProfileProps> = ({
                         placeholder="e.g. Jan 2020 - Present"
                       />
                     </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Key Achievements</Label>
+                    <Controller
+                      name={`experience.${index}.achievements`}
+                      control={control}
+                      render={({ field }) => (
+                        <TagInput
+                          tags={field.value || []}
+                          onTagsChange={(newAchievements) => {
+                            console.log(
+                              field.value,
+                              form.getValues().experience[index].achievements
+                            );
+                            field.onChange(newAchievements);
+                          }}
+                          placeholder="Add an achievement (e.g., Led a team of 5 developers)"
+                        />
+                      )}
+                    />
                   </div>
                 </div>
               ))
@@ -548,6 +588,8 @@ const EditProfile: React.FC<EditProfileProps> = ({
                     name: "",
                     description: "",
                     technologies: [],
+                    achievements: [],
+                    duration: "",
                     url: "",
                   })
                 }
@@ -592,6 +634,14 @@ const EditProfile: React.FC<EditProfileProps> = ({
                       />
                     </div>
                     <div className="space-y-2">
+                      <Label>Duration</Label>
+                      <Input
+                        {...register(`projects.${index}.duration` as const)}
+                        placeholder="e.g. 2020 - Present"
+                        error={errors.projects?.[index]?.duration?.message}
+                      />
+                    </div>
+                    <div className="space-y-2">
                       <Label>Description</Label>
                       <Input
                         {...register(`projects.${index}.description` as const)}
@@ -614,6 +664,22 @@ const EditProfile: React.FC<EditProfileProps> = ({
                         placeholder="https://example.com"
                         type="url"
                         error={errors.projects?.[index]?.url?.message}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Key Achievements</Label>
+                      <Controller
+                        name={`projects.${index}.achievements`}
+                        control={control}
+                        render={({ field }) => (
+                          <TagInput
+                            tags={field.value || []}
+                            onTagsChange={(newAchievements) => {
+                              field.onChange(newAchievements);
+                            }}
+                            placeholder="Add an achievement (e.g., Led a team of 5 developers)"
+                          />
+                        )}
                       />
                     </div>
                   </div>

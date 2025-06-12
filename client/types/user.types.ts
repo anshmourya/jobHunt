@@ -18,7 +18,7 @@ export interface IEducation {
   institution: string;
   location?: string;
   year?: string;
-  achievements?: string;
+  achievements?: string[];
   _id?: string;
 }
 
@@ -30,6 +30,8 @@ export interface IProject {
   name: string;
   description?: string;
   technologies?: string[];
+  achievements?: string[];
+  duration?: string;
   url?: string;
   _id?: string;
 }

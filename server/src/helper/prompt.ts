@@ -249,6 +249,8 @@ You are an expert in extracting and structuring resume data from PDFs. Extract t
    - Brief description
    - Your role and contributions
    - Project URL (if available)
+   - Project duration
+   - Project achievements
 
 ## Output Format:
 Return a clean JSON object with the following structure. Include only the fields that have data.
@@ -296,7 +298,11 @@ Return a clean JSON object with the following structure. Include only the fields
       "degree": "B.S. in Computer Science",
       "institution": "Stanford University",
       "location": "Stanford, CA",
-      "year": 2018
+      "year": 2018,
+      "achievements": [
+        "Led a team of 5 developers to deliver...",
+        "Optimized application performance by 40%..."
+      ]
     }
   ],
   "skills": {
@@ -311,7 +317,9 @@ Return a clean JSON object with the following structure. Include only the fields
       "name": "Portfolio Website",
       "description": "Personal portfolio website built with Next.js",
       "technologies": ["Next.js", "TypeScript", "Tailwind CSS"],
-      "url": "https://johndoe.dev"
+      "url": "https://johndoe.dev",
+      "duration": "01/2020 - Present"
+      achievements: ["Led a team of 5 developers to deliver...", "Optimized application performance by 40%..."],
     }
   ]
 }

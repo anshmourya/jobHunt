@@ -1,5 +1,6 @@
 import { getAuth } from "@clerk/express";
 import User from "../models/user";
+import { setProfilePercentage } from "../helper/utils";
 
 export const createUser = async (req: any, res: any) => {
   try {
@@ -37,8 +38,10 @@ export const updateProfile = async (req: any, res: any) => {
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
+    let percentage = setProfilePercentage(req.body);
     user.set({
       ...req.body,
+      profileCompletedPercentage: percentage,
     });
     await user.save();
     res.status(200).json({ message: "User updated successfully", data: user });

@@ -83,10 +83,10 @@ app.get("/resume-view", (req, res) => {
   res.render("resume", { resume: resumeData });
 });
 
-app.post("/jd-resume", async (req, res) => {
+app.post("/jd-resume", requireAuth(), async (req, res) => {
   try {
     const { jobDescription } = req.body;
-
+    const userId = getAuth(req).userId;
     if (!jobDescription || jobDescription.trim() === "") {
       return res.status(400).json({ message: "Job description is required" });
     }
@@ -100,7 +100,7 @@ app.post("/jd-resume", async (req, res) => {
       return res.status(500).json({ message: "Failed to generate resume" });
     }
 
-    const pdfBuffer = await generateResume(extractedData.keywords);
+    const pdfBuffer = await generateResume(userId!, extractedData.keywords);
 
     if (!pdfBuffer) {
       return res.status(500).json({ message: "Failed to generate resume" });
@@ -143,12 +143,11 @@ app.get("/jobs", requireAuth(), async (req, res) => {
 });
 
 //return resume
-app.get("/resume-builder", async (req, res) => {
+app.get("/resume-builder", requireAuth(), async (req, res) => {
   try {
     const keywords = (req.query.keywords as string).split(",");
-    console.log("Keywords:", keywords);
-
-    const pdfBuffer = await generateResume(keywords);
+    const userId = getAuth(req).userId;
+    const pdfBuffer = await generateResume(userId!, keywords);
 
     if (!pdfBuffer) {
       return res.status(500).json({ message: "Failed to generate resume" });

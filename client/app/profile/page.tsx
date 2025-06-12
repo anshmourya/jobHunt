@@ -26,6 +26,7 @@ import toast from "react-hot-toast";
 import { IUser } from "@/types/user.types";
 import EditProfile from "@/components/edit-profile";
 import { useQueryClient } from "@tanstack/react-query";
+import ProfileCompletionStatus from "@/components/profile-completion-status";
 
 // Empty state component
 function EmptyState({
@@ -95,6 +96,16 @@ export default function ProfilePage() {
 
   return (
     <div className="container mx-auto py-8 px-4">
+      {/* Profile Completion Status Bar */}
+      {profile.profileCompletedPercentage < 100 && (
+        <div className="mb-6">
+          <ProfileCompletionStatus
+            completionPercentage={profile.profileCompletedPercentage}
+            onUpdateProfile={() => {}}
+            onDismiss={() => {}}
+          />
+        </div>
+      )}
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
         <div className="flex items-center gap-6">

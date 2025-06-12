@@ -26,7 +26,7 @@ const userSchema = new mongoose.Schema(
         institution: { type: String, required: true },
         location: { type: String },
         year: { type: String },
-        achievements: { type: String },
+        achievements: [{ type: String }],
       },
     ],
     skills: Object, // { frontend: string[]; backend: string[]; databases: string[]; devops: string[]; tools: string[] }
@@ -36,6 +36,8 @@ const userSchema = new mongoose.Schema(
         description: { type: String },
         technologies: [{ type: String }],
         url: { type: String },
+        duration: { type: String },
+        achievements: [{ type: String }],
       },
     ],
     clerkId: { type: String, required: true, unique: true },
