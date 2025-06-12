@@ -31,6 +31,7 @@ export default function LoginPage() {
           routing="path"
           path="/login"
           signUpUrl="/signup"
+          forceRedirectUrl="/jobs"
         />
       </div>
     </div>
