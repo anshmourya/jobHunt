@@ -198,9 +198,14 @@
             <%= project.duration %>
           </div>
         </div>
-        <p class="text-sm" style="font-size: <%= resume.textSize || '13px' %>">
-          <%= project.description %>
-        </p>
+        <ul
+          class="list-disc list-inside text-sm space-y-1"
+          style="font-size: <%= resume.textSize || '13px' %>"
+        >
+          <% for (const point of project.achievements) { %>
+          <li><%= point %></li>
+          <% } %>
+        </ul>
       </div>
       <% } %>
     </section>

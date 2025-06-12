@@ -1,8 +1,7 @@
 FROM ghcr.io/puppeteer/puppeteer:21.10.0
 
-# Install Poppler utilities for PDF processing
+# Install PDF tools
 USER root
-# Fix GPG key issues and install poppler-utils
 RUN apt-get update --allow-releaseinfo-change -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true || true && \
     apt-get install -y --no-install-recommends --allow-unauthenticated \
     poppler-utils \
@@ -10,22 +9,28 @@ RUN apt-get update --allow-releaseinfo-change -o Acquire::AllowInsecureRepositor
     && apt-get clean
 USER pptruser
 
+# Puppeteer ENV
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
 
 WORKDIR /usr/src/app
 
-# Copy package files with correct ownership
+# Prefer npm registry mirror and retry strategy
+RUN npm config set fetch-retries 5
+RUN npm config set registry https://registry.npmjs.org/
+
+# Copy package files and lockfile
 COPY --chown=pptruser:pptruser package*.json ./
+COPY --chown=pptruser:pptruser package-lock.json ./
 
-# Install dependencies
-RUN npm install
+# Use npm ci if lockfile is present for more stable builds
+RUN npm ci --prefer-offline || npm install --prefer-offline
 
-# Copy the rest of the application code with correct ownership
+# Copy the rest of the source
 COPY --chown=pptruser:pptruser . .
 
-# Build the application
+# Build your app
 RUN npm run build
 
-# Start the application
+# Start your app
 CMD ["npm", "start"]

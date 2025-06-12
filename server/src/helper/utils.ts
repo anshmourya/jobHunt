@@ -147,7 +147,27 @@ export const getResumeData = async (clerkId: string) => {
       ...resumeData
     } = user.toObject();
 
-    let result = {
+    const formatUrl = (url: string | undefined): string => {
+      if (!url || typeof url !== "string") return "";
+      return url.startsWith("http") ? url : `https://${url}`;
+    };
+
+    // Dynamically format all links
+    const formattedLinks: Record<string, string> = {};
+    if (
+      resumeData.personalInfo?.links &&
+      typeof resumeData.personalInfo.links === "object"
+    ) {
+      for (const [key, value] of Object.entries(
+        resumeData.personalInfo.links
+      )) {
+        if (typeof value === "string" && value.trim() !== "") {
+          formattedLinks[key] = formatUrl(value);
+        }
+      }
+    }
+
+    const result = {
       name: resumeData.personalInfo?.name,
       email: resumeData.personalInfo?.email,
       phone: resumeData.personalInfo?.phone,
@@ -158,10 +178,10 @@ export const getResumeData = async (clerkId: string) => {
       education: resumeData.education,
       skills: resumeData.skills,
       projects: resumeData.projects,
+      links: formattedLinks,
     };
 
-    console.log(result.email);
-
+    console.log(result.links);
     return result;
   } catch (error) {
     console.error("Error in getResumeData:", error);
