@@ -272,9 +272,3 @@ app.listen(PORT, () => {
   });
   console.log(`Server is running on port ${PORT}`);
 });
-
-getUnreadMessages(["TechUprise_Updates", "jobs_and_internships_updates"]).then(
-  (messages) => {
-    console.log(messages);
-  }
-);

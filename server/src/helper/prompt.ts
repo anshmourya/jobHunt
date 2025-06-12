@@ -212,7 +212,7 @@ You are an expert in extracting and structuring resume data from PDFs. Extract t
    - Email address (required)
    - Phone number (required)
    - Location (city, country)
-   - Relevant links (LinkedIn, GitHub, portfolio, etc.)
+   - Relevant links (LinkedIn, GitHub, portfolio, etc.) 
 
 2. **Professional Summary**
    - 3-5 sentence professional overview
@@ -276,7 +276,7 @@ Return a clean JSON object with the following structure. Include only the fields
     "location": "San Francisco, CA, USA",
     "title": "Senior Software Engineer",
     "links": {
-      "linkedin": "linkedin.com/in/johndoe",
+      "linkedin": "linkedin.com/in/johndoe", //link should be valid leave it "" if not vlaid link found
       "github": "github.com/johndoe"
     }
   },

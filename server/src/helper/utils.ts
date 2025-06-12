@@ -160,6 +160,8 @@ export const getResumeData = async (clerkId: string) => {
       projects: resumeData.projects,
     };
 
+    console.log(result.email);
+
     return result;
   } catch (error) {
     console.error("Error in getResumeData:", error);
