@@ -8,6 +8,7 @@ import { getVisionCompletion } from "../config/ollama";
 import { extractResumeDataFromPdfPrompt } from "../helper/prompt";
 import { Poppler } from "node-poppler";
 import User from "../models/user";
+import Bottleneck from "bottleneck";
 
 const poppler = new Poppler();
 const app = express();
@@ -277,3 +278,11 @@ export const setProfilePercentage = (profile: any): number => {
     throw error;
   }
 };
+
+const TOKEN_LIMIT = 6000;
+const limiter = new Bottleneck({
+  reservoir: TOKEN_LIMIT, // tokens available right now
+  reservoirRefreshAmount: TOKEN_LIMIT, // tokens restored every…
+  reservoirRefreshInterval: 60_000, // …60 s
+  maxConcurrent: 1, // one call at a time
+});
