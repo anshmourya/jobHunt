@@ -15,7 +15,7 @@ import {
 } from "./helper/utils";
 import { uploadResumeToSupabase } from "./config/supabase";
 import { clerkMiddleware, getAuth, requireAuth } from "@clerk/express";
-// import "./corn/index";
+import "./corn/index";
 import { getUnreadMessages } from "./telegram";
 import { Poppler } from "node-poppler";
 import User from "./models/user";
@@ -268,8 +268,13 @@ app.post(
 app.listen(PORT, () => {
   connectDB().then(() => {
     console.log("MongoDB connected");
-    keepServerAlive();
     console.log("Keep-alive mechanism started");
   });
   console.log(`Server is running on port ${PORT}`);
 });
+
+getUnreadMessages(["TechUprise_Updates", "jobs_and_internships_updates"]).then(
+  (messages) => {
+    console.log(messages);
+  }
+);

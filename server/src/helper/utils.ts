@@ -278,11 +278,3 @@ export const setProfilePercentage = (profile: any): number => {
     throw error;
   }
 };
-
-const TOKEN_LIMIT = 6000;
-const limiter = new Bottleneck({
-  reservoir: TOKEN_LIMIT, // tokens available right now
-  reservoirRefreshAmount: TOKEN_LIMIT, // tokens restored every…
-  reservoirRefreshInterval: 60_000, // …60 s
-  maxConcurrent: 1, // one call at a time
-});

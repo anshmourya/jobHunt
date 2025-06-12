@@ -1,6 +1,6 @@
 import { SignIn } from "@clerk/nextjs";
 
-export default function LoginPage() {
+export default function LoginCallbackPage() {
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-background to-muted/30">
       <div className="w-full max-w-md p-8 space-y-8 bg-card rounded-lg shadow-lg">
@@ -33,7 +33,6 @@ export default function LoginPage() {
           signUpUrl="/signup"
           forceRedirectUrl="/jobs"
           fallbackRedirectUrl="/jobs"
-          
         />
       </div>
     </div>

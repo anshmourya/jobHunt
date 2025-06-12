@@ -5,6 +5,7 @@ import type {
   ChatCompletionUserMessageParam,
   ChatCompletionAssistantMessageParam,
 } from "groq-sdk/resources/chat/completions";
+
 const summaryModel = new ChatGroq({
   model: "llama-3.1-8b-instant",
   temperature: 0,
