@@ -279,7 +279,10 @@ export default function ProfilePage() {
                     <div key={index} className="space-y-2">
                       <div className="flex justify-between">
                         <h3 className="font-semibold">{project.name}</h3>
-                        {project.url && (
+                        <span className="text-sm text-muted-foreground">
+                          {project.duration}
+                        </span>
+                        {project.url && project.url !== "" && (
                           <a
                             href={project.url}
                             target="_blank"
@@ -290,9 +293,11 @@ export default function ProfilePage() {
                           </a>
                         )}
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {project.description}
-                      </p>
+                      <ul className="list-disc pl-5 space-y-1 text-sm">
+                        {project.achievements?.map((achievement, i) => (
+                          <li key={i}>{achievement}</li>
+                        ))}
+                      </ul>
                       <div className="flex flex-wrap gap-2 mt-2">
                         {project?.technologies?.map((tech) => (
                           <Badge key={tech} variant="secondary">

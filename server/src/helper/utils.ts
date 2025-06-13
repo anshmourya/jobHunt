@@ -3,12 +3,17 @@ import { resumeBuilderWorkflow } from "../tools";
 import express from "express";
 import path from "path";
 import multer from "multer";
+import * as yup from "yup";
 import fs from "fs";
 import { getVisionCompletion } from "../config/ollama";
-import { extractResumeDataFromPdfPrompt } from "../helper/prompt";
+import {
+  RESUME_VALIDATION_PROMPT,
+  extractResumeDataFromPdfPrompt,
+} from "../helper/prompt";
 import { Poppler } from "node-poppler";
 import User from "../models/user";
 import Bottleneck from "bottleneck";
+import schema from "../validation/reusme";
 
 const poppler = new Poppler();
 const app = express();
@@ -96,35 +101,167 @@ export const getJsonResume = async (file: Express.Multer.File) => {
       data_url: `data:image/jpeg;base64,${base64Image}`,
     };
 
-    //send to groq
-    const groqResponse = await getVisionCompletion([
-      {
-        role: "system",
-        content: extractResumeDataFromPdfPrompt,
-      },
-      {
-        role: "user",
-        content: [
-          {
-            type: "image_url",
-            image_url: {
-              url: result.data_url,
-            },
-          },
-        ],
-      },
-    ]);
+    // Helper function to create detailed error context
+    const createErrorContext = (
+      resumeData: any,
+      validationErrors: string[]
+    ) => {
+      const errorContext = {
+        validation_errors: validationErrors.map((error) => ({
+          field: error.split(" ")[0], // Extract field name
+          message: error,
+          current_value: getNestedValue(resumeData, error.split(" ")[0]),
+        })),
+        current_structure: getDataStructure(resumeData),
+        missing_fields: validationErrors.filter((e) => e.includes("missing")),
+        format_errors: validationErrors.filter(
+          (e) => e.includes("format") || e.includes("valid")
+        ),
+        length_errors: validationErrors.filter((e) => e.includes("at least")),
+      };
+      return errorContext;
+    };
 
-    const resumeData =
-      typeof groqResponse.choices[0].message.content === "string"
-        ? JSON.parse(groqResponse.choices[0].message.content)
-        : groqResponse.choices[0].message.content;
-    console.log(resumeData);
-    return resumeData;
+    // Helper function to get nested object values safely
+    const getNestedValue = (obj: any, path: string) => {
+      try {
+        return path.split(".").reduce((current, key) => {
+          if (key.includes("[") && key.includes("]")) {
+            const arrayKey = key.split("[")[0];
+            return current?.[arrayKey] || null;
+          }
+          return current?.[key];
+        }, obj);
+      } catch {
+        return null;
+      }
+    };
+
+    // Helper function to analyze data structure
+    const getDataStructure = (data: any) => {
+      const structure: any = {};
+      for (const [key, value] of Object.entries(data || {})) {
+        if (Array.isArray(value)) {
+          structure[key] = {
+            type: "array",
+            length: value.length,
+            sample_item: value[0] ? Object.keys(value[0]) : [],
+          };
+        } else if (typeof value === "object" && value !== null) {
+          structure[key] = {
+            type: "object",
+            keys: Object.keys(value),
+          };
+        } else {
+          structure[key] = {
+            type: typeof value,
+            present: value !== null && value !== undefined && value !== "",
+          };
+        }
+      }
+      return structure;
+    };
+
+    // Initial extraction attempt
+    let resumeData = await extractResumeData(result.data_url);
+
+    // Validation with detailed error handling
+    try {
+      await schema.validate(resumeData, { abortEarly: false });
+      return resumeData;
+    } catch (error) {
+      if (error instanceof yup.ValidationError) {
+        const validationErrors = error.inner.map((e) => e.message);
+        const errorContext = createErrorContext(resumeData, validationErrors);
+
+        console.log("Validation failed, attempting correction with context:", {
+          errorCount: validationErrors.length,
+          errors: validationErrors,
+        });
+
+        // Enhanced retry with detailed context
+        const retryResult = await getVisionCompletion([
+          {
+            role: "system",
+            content: `${RESUME_VALIDATION_PROMPT}`,
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "image_url",
+                image_url: {
+                  url: result.data_url,
+                },
+              },
+              {
+                type: "text",
+                text: JSON.stringify(
+                  {
+                    original_resume_data: resumeData,
+                    detailed_error_context: errorContext,
+                  },
+                  null,
+                  2
+                ),
+              },
+            ],
+          },
+        ]);
+
+        if (retryResult.choices[0].message.content) {
+          const correctedData = JSON.parse(
+            retryResult.choices[0].message.content
+          );
+
+          // Validate the corrected data
+          try {
+            await schema.validate(correctedData, { abortEarly: false });
+            console.log("Correction successful after retry");
+            return correctedData;
+          } catch (secondError) {
+            console.error("Correction failed on second attempt:", secondError);
+            throw new Error(
+              `Resume extraction failed after correction attempt. Remaining errors: ${secondError}`
+            );
+          }
+        }
+      }
+
+      throw error;
+    }
   } catch (error) {
-    console.log(error);
+    console.error("Resume extraction failed:", error);
     throw error;
   }
+};
+
+// Helper function to extract resume data
+const extractResumeData = async (dataUrl: string) => {
+  const groqResponse = await getVisionCompletion([
+    {
+      role: "system",
+      content: extractResumeDataFromPdfPrompt,
+    },
+    {
+      role: "user",
+      content: [
+        {
+          type: "image_url",
+          image_url: {
+            url: dataUrl,
+          },
+        },
+      ],
+    },
+  ]);
+
+  const resumeData =
+    typeof groqResponse.choices[0].message.content === "string"
+      ? JSON.parse(groqResponse.choices[0].message.content)
+      : groqResponse.choices[0].message.content;
+
+  return resumeData;
 };
 
 export const upload = multer({ storage: multer.memoryStorage() });

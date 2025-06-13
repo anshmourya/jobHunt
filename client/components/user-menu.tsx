@@ -27,7 +27,7 @@ export function UserMenu() {
   return (
     <div className="flex items-center gap-4">
       <Button variant="outline" asChild>
-        <Link href="/dashboard">Dashboard</Link>
+        <Link href="/jobs">Dashboard</Link>
       </Button>
       <UserButton afterSignOutUrl="/" />
     </div>

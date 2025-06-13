@@ -147,9 +147,9 @@ const EditProfile: React.FC<EditProfileProps> = ({
     if (!Array.isArray(updatedData.experience)) updatedData.experience = [];
     if (!Array.isArray(updatedData.projects)) updatedData.projects = [];
 
-    console.log(updatedData, experienceFields);
+    console.log(updatedData);
+
     onSave(updatedData);
-    form.reset();
     setIsOpen(false);
   };
 
@@ -162,7 +162,7 @@ const EditProfile: React.FC<EditProfileProps> = ({
         </p>
       </div>
 
-      <ScrollArea className="h-[40dvh] ">
+      <ScrollArea className="h-[76dvh]  ">
         {/* Personal Information */}
         <Card className="my-4">
           <CardHeader>
@@ -379,11 +379,13 @@ const EditProfile: React.FC<EditProfileProps> = ({
                   <Controller
                     name={`education.${index}.achievements`}
                     control={control}
-                    render={({ field }) => (
+                    render={({ field: { value, onChange } }) => (
                       <TagInput
-                        tags={field.value || []}
+                        tags={value || []}
                         onTagsChange={(newAchievements) => {
-                          field.onChange(newAchievements);
+                          onChange(newAchievements);
+                          // Trigger form validation after update
+                          form.trigger(`education.${index}.achievements`);
                         }}
                         placeholder="Add an achievement (e.g., Graduated with honors)"
                       />
@@ -495,11 +497,8 @@ const EditProfile: React.FC<EditProfileProps> = ({
                         <TagInput
                           tags={field.value || []}
                           onTagsChange={(newAchievements) => {
-                            console.log(
-                              field.value,
-                              form.getValues().experience[index].achievements
-                            );
                             field.onChange(newAchievements);
+                            form.trigger(`experience.${index}.achievements`);
                           }}
                           placeholder="Add an achievement (e.g., Led a team of 5 developers)"
                         />
@@ -671,11 +670,13 @@ const EditProfile: React.FC<EditProfileProps> = ({
                       <Controller
                         name={`projects.${index}.achievements`}
                         control={control}
-                        render={({ field }) => (
+                        render={({ field: { value, onChange } }) => (
                           <TagInput
-                            tags={field.value || []}
+                            tags={value || []}
                             onTagsChange={(newAchievements) => {
-                              field.onChange(newAchievements);
+                              onChange(newAchievements);
+                              // Trigger form validation after update
+                              form.trigger(`projects.${index}.achievements`);
                             }}
                             placeholder="Add an achievement (e.g., Led a team of 5 developers)"
                           />
@@ -742,7 +743,7 @@ const EditProfile: React.FC<EditProfileProps> = ({
   return isDesktop ? (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-w-[60dvw] max-h-[60dvh] w-full">
+      <DialogContent className="min-w-[80dvw] min-h-[80dvh]">
         {FormContent}
       </DialogContent>
     </Dialog>

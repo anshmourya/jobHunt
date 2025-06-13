@@ -33,7 +33,6 @@ const userSchema = new mongoose.Schema(
     projects: [
       {
         name: { type: String, required: true },
-        description: { type: String },
         technologies: [{ type: String }],
         url: { type: String },
         duration: { type: String },

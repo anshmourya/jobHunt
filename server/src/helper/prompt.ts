@@ -246,7 +246,6 @@ You are an expert in extracting and structuring resume data from PDFs. Extract t
 6. **Projects** (if applicable)
    - Project name
    - Technologies used
-   - Brief description
    - Your role and contributions
    - Project URL (if available)
    - Project duration
@@ -276,7 +275,7 @@ Return a clean JSON object with the following structure. Include only the fields
     "location": "San Francisco, CA, USA",
     "title": "Senior Software Engineer",
     "links": {
-      "linkedin": "linkedin.com/in/johndoe", //link should be valid leave it "" if not vlaid link found
+      "linkedin": "linkedin.com/in/johndoe",
       "github": "github.com/johndoe"
     }
   },
@@ -315,14 +314,65 @@ Return a clean JSON object with the following structure. Include only the fields
   "projects": [
     {
       "name": "Portfolio Website",
-      "description": "Personal portfolio website built with Next.js",
       "technologies": ["Next.js", "TypeScript", "Tailwind CSS"],
       "url": "https://johndoe.dev",
-      "duration": "01/2020 - Present"
-      achievements: ["Led a team of 5 developers to deliver...", "Optimized application performance by 40%..."],
+      "duration": "01/2020 - Present",
+      "achievements": ["Led a team of 5 developers to deliver...", "Optimized application performance by 40%..."],
     }
   ]
 }
 \`\`\`
 
 Extract and structure the resume data according to the format above. Return only the JSON object with no additional text or explanation.`;
+
+export const RESUME_VALIDATION_PROMPT = `CRITICAL: The previous extraction had validation errors. Use the detailed error context below to make precise corrections:
+
+1. Check each missing field and extract it from the resume image
+2. Ensure proper data types (strings, arrays, objects)
+3. Validate email formats, URLs, and required fields
+4. Maintain the exact JSON structure expected
+
+  required_json_structure: {
+personalInfo: {
+                        name: "string",
+                        email: "string",
+                        phone: "string",
+                        location: "string",
+                        title: "string",
+                        links: "object?",
+                      },
+                      summary: "string (min 10 chars)",
+                      experience: [
+                        {
+                          title: "string",
+                          company: "string",
+                          location: "string?",
+                          duration: "string?",
+                          achievements: "string[]?",
+                        },
+                      ],
+                      education: [
+                        {
+                          degree: "string",
+                          institution: "string",
+                          location: "string?",
+                          year: "string?",
+                          achievements: "string[]?",
+                        },
+                      ],
+                      skills: "object",
+                      projects: [
+                        {
+                          name: "string",
+                          technologies: "string[]",
+                          url: "string?",
+                          duration: "string?",
+                          achievements: "string[]?",
+                        },
+                      ],
+                    },
+
+Focus on these specific issues and fix them accurately.
+
+Return only JSON
+`;

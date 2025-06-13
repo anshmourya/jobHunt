@@ -51,6 +51,7 @@ export const profileSchema = yup.object().shape({
       company: yup.string().required("Company name is required"),
       location: yup.string().nullable(),
       duration: yup.string().required("Duration is required"),
+      achievements: yup.array().of(yup.string()).nullable(),
     })
   ),
   projects: yup.array().of(
@@ -59,6 +60,8 @@ export const profileSchema = yup.object().shape({
       description: yup.string().nullable(),
       technologies: yup.array().of(yup.string()).nullable(),
       url: yup.string().url("Please enter a valid URL").nullable().optional(),
+      achievements: yup.array().of(yup.string()).nullable(),
+      duration: yup.string().required("Duration is required"),
     })
   ),
   skillsArray: yup.array().of(
