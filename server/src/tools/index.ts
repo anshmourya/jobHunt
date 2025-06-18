@@ -1,7 +1,9 @@
 import { summaryModel } from "../config/ollama";
 import { task, entrypoint } from "@langchain/langgraph";
 import Job from "../models/job";
-import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
+import {executablePath} from "puppeteer";
 import pino from "pino";
 import {
   aggregatePrompt,
@@ -20,9 +22,11 @@ const logger = pino({ level: process.env.LOG_LEVEL ?? "info" });
 let sharedBrowser;
 export async function getBrowser() {
   if (!sharedBrowser) {
+    puppeteer.use(StealthPlugin());
     sharedBrowser = await puppeteer.launch({
       headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      executablePath: executablePath()
     });
   }
   return sharedBrowser;

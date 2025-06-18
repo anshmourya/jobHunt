@@ -30,6 +30,7 @@ app.set("views", path.join(__dirname, "views"));
 app.use(clerkMiddleware());
 
 import userRoutes from "./routes/user";
+import { scrapper } from "./tools/scrapper";
 app.use("/v1/users", userRoutes);
 
 const PORT = process.env.PORT ?? 5001;
@@ -271,4 +272,9 @@ app.listen(PORT, () => {
     console.log("Keep-alive mechanism started");
   });
   console.log(`Server is running on port ${PORT}`);
+});
+
+
+scrapper("find HR email of levitation").then((res) => {
+  console.log(res);
 });
