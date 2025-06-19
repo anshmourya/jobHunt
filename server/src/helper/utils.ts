@@ -15,11 +15,14 @@ import User from "../models/user";
 import Bottleneck from "bottleneck";
 import schema from "../validation/reusme";
 
-const poppler = new Poppler();
+// Initialize Poppler with proper configuration for WebContainer
+const poppler = new Poppler("/usr/bin");
+
 const app = express();
 // Configure view engine and views directory
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "../views"));
+
 export const generateResume = async (clerkId: string, keywords: string[]) => {
   try {
     if (!keywords) {
