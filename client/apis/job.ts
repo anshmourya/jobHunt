@@ -9,6 +9,8 @@ const useJobApi = () => {
       return response.data;
     } catch (error) {
       console.error(error);
+      // Re-throw the error so react-query can handle it properly
+      throw error;
     }
   };
 
@@ -36,6 +38,7 @@ const useJobApi = () => {
       URL.revokeObjectURL(fileURL);
     } catch (error) {
       console.error("Error downloading resume PDF:", error);
+      throw error;
     }
   };
 
@@ -54,6 +57,7 @@ const useJobApi = () => {
       return response.data;
     } catch (error) {
       console.error(error);
+      throw error;
     }
   };
 
