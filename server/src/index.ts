@@ -132,7 +132,7 @@ app.post("/jd-resume", requireAuth(), async (req, res) => {
 });
 
 //return all job
-app.get("/jobs",  async (req, res) => {
+app.get("/jobs", async (req, res) => {
   try {
     const jobs = await Job.find().sort({ createdAt: -1 });
     console.log("Jobs found:", jobs.length);
