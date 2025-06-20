@@ -31,6 +31,8 @@ app.use(clerkMiddleware());
 
 import userRoutes from "./routes/user";
 import { scrapper } from "./tools/scrapper";
+import { emailBuilder } from "./tools/email";
+import { getStealthPage, navigateWithStealth } from "./browser";
 app.use("/v1/users", userRoutes);
 
 const PORT = process.env.PORT ?? 5001;
@@ -274,7 +276,13 @@ app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
 
+// scrapper("find HR email of levitation").then((res) => {
+//   console.log(res);
+// });
 
-scrapper("find HR email of levitation").then((res) => {
-  console.log(res);
-});
+//search on linkedin for levitation
+// getStealthPage(true).then((page) => {
+//   navigateWithStealth(page!, "https://linkedin.com").then((res) => {
+//     console.log(res);
+//   });
+// });

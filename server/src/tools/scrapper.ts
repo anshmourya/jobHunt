@@ -7,25 +7,13 @@ import { HumanMessage } from "@langchain/core/messages";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { z } from "zod";
 import * as puppeteer from "puppeteer";
+import { getInternalLinksAndScrap } from "../helper/services";
+import { getStealthPage } from "../browser";
 
 // keep a single shared page instance
-let page: puppeteer.Page | null = null;
 
 async function getSharedPage() {
-  const browser = await getBrowser();
-  if (!page) {
-    page = await browser.newPage();
-    if (!page) throw new Error("Failed to create page");
-    // Set user agent to avoid bot detection
-    await page.setUserAgent(
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-    );
-
-    await page.setExtraHTTPHeaders({
-      "Accept-Language": "en-US,en;q=0.9",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-    });
-  }
+  let page = await getStealthPage();
   return page;
 }
 
@@ -81,13 +69,16 @@ const googleSearch = tool(
       await delay(2000);
 
       //take screenshot for debugging
-      await page.screenshot({ path: 'screenshot_1.png' });
+      await page.screenshot({ path: "screenshot_1.png" });
 
       //bot detection error
       const pageContent = await page.content();
-      if (pageContent.includes('detected unusual traffic') || pageContent.includes('captcha')) {
+      if (
+        pageContent.includes("detected unusual traffic") ||
+        pageContent.includes("captcha")
+      ) {
         //take a screenshot
-        await page.screenshot({ path: 'bot_detection.png' });
+        await page.screenshot({ path: "bot_detection.png" });
         return `Google is blocking automated requests. Please try a different approach.`;
       }
 
@@ -531,6 +522,50 @@ const wait = tool(
   }
 );
 
+//scrape link and and retrun all the related url
+const scrapeLink = tool(
+  async ({ link }: { link: string }): Promise<string> => {
+    try {
+      const scrapingResults = await getInternalLinksAndScrap(link, {
+        maxInternalPages: 10,
+        concurrency: 2,
+        includeExternalLinks: false,
+      });
+
+      return JSON.stringify(
+        {
+          sourceUrl: link,
+          totalUrls: scrapingResults.links.internalLinks.length,
+          internalUrls: scrapingResults.links.internalLinks,
+          externalUrls: scrapingResults.links.externalLinks,
+          pagesData: scrapingResults.body,
+        },
+        null,
+        2
+      );
+    } catch (error) {
+      return JSON.stringify(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to scrape link",
+          sourceUrl: link,
+          urls: [],
+          pagesData: [],
+        },
+        null,
+        2
+      );
+    }
+  },
+  {
+    name: "scrapeLink",
+    description: "Scrape a link and return a simple list of all related URLs",
+    schema: z.object({
+      link: z.string().url("Must be a valid URL"),
+    }),
+  }
+);
+
 // --- AGENT SETUP ---
 
 const agent = createReactAgent({
@@ -546,6 +581,7 @@ const agent = createReactAgent({
     getPageInfo,
     goBack,
     wait,
+    scrapeLink,
   ],
   checkpointer: new MemorySaver(),
 });

@@ -36,6 +36,7 @@
     "@supabase/supabase-js": "^2.49.9",
     "@tavily/core": "^0.5.7",
     "@types/intl-tel-input": "^18.1.4",
+    "@types/puppeteer": "^7.0.4",
     "axios": "^1.8.4",
     "bottleneck": "^2.19.5",
     "cheerio": "^1.0.0",

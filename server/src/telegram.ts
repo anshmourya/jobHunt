@@ -232,7 +232,7 @@ const getUnreadMessages = async (channelUsernames: string[]) => {
           );
 
           // Process messages in batches to avoid rate limiting
-          const BATCH_SIZE = 1;
+          const BATCH_SIZE = 2;
           for (let i = 0; i < jobRelatedMessages.length; i += BATCH_SIZE) {
             const batch = jobRelatedMessages.slice(i, i + BATCH_SIZE);
             let count = 0;
