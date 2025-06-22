@@ -257,7 +257,7 @@ export async function navigateWithStealth(page: Page, url: string) {
     await delay(2000);
 
     if (page.isClosed() || page.mainFrame().isDetached()) {
-      throw new Error("Page was blocked after navigation");
+      throw new Error("Page was blocked or frame detached after navigation");
     }
 
     // Only scroll if page is still valid
@@ -268,6 +268,12 @@ export async function navigateWithStealth(page: Page, url: string) {
     return response;
   } catch (error) {
     console.error("Error in navigateWithStealth:", error);
+    // If frame is detached or page is closed, force a new page on the next attempt
+    if ((error as Error).message.includes("detached") || page.isClosed()) {
+      console.log("Frame detached or page closed, will retry with new page");
+      const newPage = await getStealthPage(true);
+      return await navigateWithStealth(newPage, url);
+    }
     throw error;
   }
 }

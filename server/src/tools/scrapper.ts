@@ -1,588 +1,408 @@
 import { tool } from "@langchain/core/tools";
-import { getBrowser } from "./index";
-import { retry } from "./index";
-import { functionModel } from "../config/ollama";
+import { getBrowser, retry } from "./index";
+import { functionModel, summaryModel } from "../config/ollama";
 import { MemorySaver } from "@langchain/langgraph";
 import { HumanMessage } from "@langchain/core/messages";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
+import axios from "axios";
 import { z } from "zod";
-import * as puppeteer from "puppeteer";
-import { getInternalLinksAndScrap } from "../helper/services";
-import { getStealthPage } from "../browser";
+import * as cheerio from "cheerio";
+import botDetectionResolver from "../browser/bot";
+import { getStealthPage, navigateWithStealth } from "../browser";
 
-// keep a single shared page instance
-
-async function getSharedPage() {
-  let page = await getStealthPage();
-  return page;
+//shared page
+let sharedPage;
+export async function getPage() {
+  if (!sharedPage) {
+    const browser = await getBrowser();
+    sharedPage = await browser.newPage();
+    //request headers
+    sharedPage.setExtraHTTPHeaders({
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      Accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.5",
+      "Accept-Encoding": "gzip, deflate",
+      DNT: "1",
+      Connection: "keep-alive",
+      "Upgrade-Insecure-Requests": "1",
+      "Sec-Fetch-Dest": "document",
+      "Sec-Fetch-Mode": "navigate",
+      "Sec-Fetch-Site": "none",
+      "Cache-Control": "max-age=0",
+    });
+  }
+  return sharedPage;
 }
 
-// Helper function for delay
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-// --- TOOLS ---
-
-const go = tool(
-  async ({ link }: { link: string }): Promise<string> => {
-    const page = await getSharedPage();
-    if (!page) throw new Error("No page found");
-
+//get website content in form of markdown
+const getWebsiteContent = tool(
+  async ({ url }: { url: string }): Promise<string> => {
     try {
-      await page.goto(link, {
+      const BASE_URL = "https://r.jina.ai/";
+      const { data: markdown } = await axios.get(`${BASE_URL}${url}`, {
+        headers: {
+          Authorization: `Bearer ${process.env.R_JINA_AI_API_KEY}`,
+        },
+      });
+
+      const cleaned = markdown
+        .replace(/!\[.*?\]\(.*?\)/g, "") //remove image markdown
+        .replace(/^#{1,6}\s*/gm, (match) => match.trim() + " ") //normalize heading spacing
+        .replace(/\n{3,}/g, "\n\n") //remove extra blank lines
+        .replace(/[ \t]{2,}/g, " ") //collapse multiple spaces/tabs
+        .trim();
+
+      return cleaned;
+    } catch (error) {
+      console.error("Scraper error:", error);
+      throw error;
+    }
+  },
+  {
+    name: "getWebsiteContent",
+    description: "Get website content in markdown (cleaned, with links intact)",
+    schema: z.object({
+      url: z.string(),
+    }),
+  }
+);
+
+//bot detection, captcha bypass, proxy rotation
+
+const botHandler = tool(
+  async () => {
+    let page;
+    try {
+      page = await getPage();
+      const result = await botDetectionResolver(page);
+      return result;
+    } catch (error) {
+      console.error("Bot handler error:", error);
+
+      throw new Error(
+        `Bot detection handling failed: ${(error as Error).message}`
+      );
+    }
+  },
+  {
+    name: "botHandler",
+    description:
+      "Advanced bot detection bypass with reCAPTCHA support, multiple strategies and robust error handling",
+  }
+);
+
+//duckduckgo search tool
+const duckDuckGoSearch = tool(
+  async ({
+    query,
+    limit = 10,
+    returnFormat = "structured",
+  }: {
+    query: string;
+    limit?: number;
+    returnFormat?: "structured" | "text" | "raw";
+  }) => {
+    let page;
+    try {
+      console.log(`Searching DuckDuckGo for: "${query}"`);
+
+      page = await getPage();
+
+      // Set a more realistic user agent to avoid blocking
+      await page.setUserAgent(
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      );
+
+      // Navigate to DuckDuckGo with better error handling
+      const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(
+        query
+      )}&kl=us-en`;
+
+      await page.goto(url, {
         waitUntil: "networkidle2",
         timeout: 30000,
       });
 
-      await delay(2000);
+      // Wait for results with better error handling
+      try {
+        await page.waitForSelector(".result, .no-results, .result__body", {
+          timeout: 15000,
+        });
+      } catch (waitError) {
+        console.warn("Timeout waiting for results, attempting to continue...");
 
-      const title = await page.title();
-      const url = page.url();
-
-      return `Successfully navigated to: ${title} (${url})`;
-    } catch (error) {
-      throw new Error(`Failed to navigate to ${link}: ${error}`);
-    }
-  },
-  {
-    name: "go",
-    description: "Navigate to a specified URL",
-    schema: z.object({ link: z.string() }),
-  }
-);
-
-// New tool for Google search
-const googleSearch = tool(
-  async ({ query }: { query: string }): Promise<string> => {
-    const page = await getSharedPage();
-    if (!page) throw new Error("No page found");
-
-    try {
-      // Navigate to Google
-      await page.goto(
-        `https://www.google.com/search?q=${encodeURIComponent(query)}`,
-        {
-          waitUntil: "networkidle2",
-          timeout: 30000,
+        // Check if page loaded at all
+        const pageContent = await page.content();
+        if (pageContent.length < 1000) {
+          throw new Error("Page appears to be empty or blocked");
         }
-      );
-
-      await delay(2000);
-
-      //take screenshot for debugging
-      await page.screenshot({ path: "screenshot_1.png" });
-
-      //bot detection error
-      const pageContent = await page.content();
-      if (
-        pageContent.includes("detected unusual traffic") ||
-        pageContent.includes("captcha")
-      ) {
-        //take a screenshot
-        await page.screenshot({ path: "bot_detection.png" });
-        return `Google is blocking automated requests. Please try a different approach.`;
       }
 
-      // Extract search results
-      const results = await page.evaluate(() => {
-        const searchResults: { title: string; url: string; snippet: string }[] =
-          [];
+      // Check for no results
+      const noResults = await page.$(".no-results");
+      if (noResults) {
+        console.log("No search results found");
+        return {
+          results: [],
+          totalResults: 0,
+          query,
+          message: "No results found for this query",
+        };
+      }
 
-        // Try different selectors for search results
-        const resultSelectors = [
-          "div[data-ved] h3",
-          ".g h3",
-          "[data-header-feature] h3",
-          ".yuRUbf h3",
-        ];
+      // Enhanced result extraction with multiple selectors and error handling
+      const results = await page.evaluate((maxResults: number) => {
+        const resultElements = document.querySelectorAll(
+          ".result, .web-result"
+        );
+        const extractedResults: any[] = [];
 
-        for (const selector of resultSelectors) {
-          const elements = document.querySelectorAll(selector);
-          if (elements.length > 0) {
-            elements.forEach((element, index) => {
-              if (index < 5) {
-                // Limit to first 5 results
-                const linkElement =
-                  element.closest("a") || element.querySelector("a");
-                const url = linkElement?.href || "";
-                const title = element.textContent?.trim() || "";
+        for (let i = 0; i < Math.min(resultElements.length, maxResults); i++) {
+          const node = resultElements[i];
 
-                // Try to find snippet text
-                const parent = element.closest(
-                  ".g, [data-ved], .yuRUbf"
-                )?.parentElement;
-                const snippetElement = parent?.querySelector(
-                  "[data-sncf], .s, .st"
-                );
-                const snippet = snippetElement?.textContent?.trim() || "";
+          try {
+            // Multiple selectors for title
+            const titleSelectors = [
+              ".result__a",
+              ".result__title a",
+              "h2 a",
+              'a[href*="uddg="]',
+              ".result-title a",
+            ];
 
-                if (url && title) {
-                  searchResults.push({ title, url, snippet });
+            let titleEl: Element | null = null;
+            let title = "";
+
+            for (const selector of titleSelectors) {
+              titleEl = node.querySelector(selector);
+              if (titleEl) {
+                title = titleEl.textContent?.trim() ?? "";
+                if (title) break;
+              }
+            }
+
+            // Multiple selectors for snippet
+            const snippetSelectors = [
+              ".result__snippet",
+              ".result-snippet",
+              ".snippet",
+              ".result__body",
+              ".web-result__snippet",
+            ];
+
+            let snippet = "";
+            for (const selector of snippetSelectors) {
+              const snippetEl = node.querySelector(selector);
+              if (snippetEl) {
+                snippet = snippetEl.textContent?.trim() || "";
+                if (snippet) break;
+              }
+            }
+
+            // Extract and clean URL
+            let href = titleEl?.getAttribute("href") || "";
+            let cleanLink = "";
+
+            if (href) {
+              // Handle DuckDuckGo redirect URLs
+              if (href.includes("uddg=")) {
+                try {
+                  const urlParams = new URLSearchParams(href.split("?")[1]);
+                  cleanLink = decodeURIComponent(urlParams.get("uddg") || "");
+                } catch (e) {
+                  // Fallback: try to extract from the href directly
+                  const match = href.match(/uddg=([^&]+)/);
+                  if (match) {
+                    cleanLink = decodeURIComponent(match[1]);
+                  }
+                }
+              } else if (href.startsWith("http")) {
+                cleanLink = href;
+              } else if (href.startsWith("/l/?")) {
+                // Handle old-style DuckDuckGo redirects
+                const match = href.match(/uddg=([^&]+)/);
+                if (match) {
+                  cleanLink = decodeURIComponent(match[1]);
                 }
               }
-            });
-            break; // If we found results with this selector, stop trying others
-          }
-        }
-
-        return searchResults;
-      });
-
-      if (results.length === 0) {
-        return `No search results found for: ${query}`;
-      }
-
-      return JSON.stringify(
-        {
-          query,
-          results: results.slice(0, 5), // Limit to top 5 results
-        },
-        null,
-        2
-      );
-    } catch (error) {
-      throw new Error(`Failed to search Google for ${query}: ${error}`);
-    }
-  },
-  {
-    name: "googleSearch",
-    description: "Search Google and return top results with URLs",
-    schema: z.object({ query: z.string() }),
-  }
-);
-
-// Enhanced go tool with fallback search
-const smartGo = tool(
-  async ({
-    link,
-    fallbackSearch,
-  }: {
-    link: string;
-    fallbackSearch?: string;
-  }): Promise<string> => {
-    const page = await getSharedPage();
-    if (!page) throw new Error("No page found");
-
-    try {
-      // First try the original URL
-      await page.goto(link, {
-        waitUntil: "networkidle2",
-        timeout: 30000,
-      });
-
-      await delay(2000);
-
-      const title = await page.title();
-      const url = page.url();
-
-      // Check if we got a valid page (not an error page)
-      const isErrorPage = await page.evaluate(() => {
-        const bodyText = document.body.textContent?.toLowerCase() || "";
-        return (
-          bodyText.includes("not found") ||
-          bodyText.includes("error") ||
-          bodyText.includes("404") ||
-          bodyText.includes("can't reach") ||
-          bodyText.includes("server not found")
-        );
-      });
-
-      if (isErrorPage && fallbackSearch) {
-        console.log(`Error page detected for ${link}, trying Google search...`);
-
-        // Try Google search for the correct URL
-        const searchQuery =
-          fallbackSearch || link.replace(/https?:\/\//, "").replace(/\/$/, "");
-        await page.goto(
-          `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`,
-          {
-            waitUntil: "networkidle2",
-            timeout: 30000,
-          }
-        );
-
-        await delay(2000);
-
-        // Get the first valid result
-        const firstResult = await page.evaluate(() => {
-          const linkElements = document.querySelectorAll(".yuRUbf a, .g a h3");
-          for (const element of linkElements) {
-            const href = element.getAttribute("href");
-            if (
-              href &&
-              href.startsWith("http") &&
-              !href.includes("google.com")
-            ) {
-              return href;
             }
-          }
-          return null;
-        });
 
-        if (firstResult) {
-          // Navigate to the found URL
-          await page.goto(firstResult, {
-            waitUntil: "networkidle2",
-            timeout: 30000,
-          });
+            // Extract display URL
+            const displayUrlSelectors = [
+              ".result__url",
+              ".result-url",
+              "cite",
+              ".web-result__url",
+            ];
 
-          await delay(2000);
-
-          const newTitle = await page.title();
-          const newUrl = page.url();
-
-          return `Original URL failed, found alternative: ${newTitle} (${newUrl})`;
-        }
-      }
-
-      return `Successfully navigated to: ${title} (${url})`;
-    } catch (error) {
-      if (fallbackSearch) {
-        // If direct navigation fails, try Google search
-        try {
-          const searchQuery =
-            fallbackSearch ||
-            link.replace(/https?:\/\//, "").replace(/\/$/, "");
-          await page.goto(
-            `https://www.google.com/search?q=${encodeURIComponent(
-              searchQuery + " site:"
-            )}`
-          );
-
-          await delay(2000);
-
-          const firstResult = await page.evaluate(() => {
-            const linkElements =
-              document.querySelectorAll(".yuRUbf a, .g a h3");
-            for (const element of linkElements) {
-              const href = element.getAttribute("href");
-              if (
-                href &&
-                href.startsWith("http") &&
-                !href.includes("google.com")
-              ) {
-                return href;
+            let displayUrl = "";
+            for (const selector of displayUrlSelectors) {
+              const urlEl = node.querySelector(selector);
+              if (urlEl) {
+                displayUrl = urlEl.textContent?.trim() || "";
+                if (displayUrl) break;
               }
             }
-            return null;
-          });
 
-          if (firstResult) {
-            await page.goto(firstResult, {
-              waitUntil: "networkidle2",
-              timeout: 30000,
-            });
-
-            const title = await page.title();
-            const url = page.url();
-            return `Original URL failed, found via search: ${title} (${url})`;
+            // Only include results with at least title and link
+            if (title && cleanLink && cleanLink.startsWith("http")) {
+              extractedResults.push({
+                title,
+                link: cleanLink,
+                snippet: snippet || "No snippet available",
+                displayUrl: displayUrl || new URL(cleanLink).hostname,
+                position: extractedResults.length + 1,
+              });
+            }
+          } catch (error) {
+            console.warn(`Error extracting result ${i}:`, error);
+            continue;
           }
-        } catch (searchError) {
-          throw new Error(
-            `Both direct navigation and search failed for ${link}: ${error}`
-          );
+        }
+
+        return extractedResults;
+      }, limit);
+
+      console.log(`Successfully extracted ${results.length} search results`);
+
+      // Return different formats based on returnFormat parameter
+      const response = {
+        results,
+        totalResults: results.length,
+        query,
+        searchEngine: "DuckDuckGo",
+      };
+
+      switch (returnFormat) {
+        case "text":
+          // LLM-friendly text format
+          const preprocessed = results
+            .map((r, i) =>
+              [
+                `### Result ${i + 1}`,
+                `Title: ${r.title}`,
+                `URL: ${r.link}`,
+                `Display URL: ${r.displayUrl}`,
+                `Snippet: ${r.snippet}`,
+              ].join("\n")
+            )
+            .join("\n\n");
+
+          return {
+            ...response,
+            textFormat: preprocessed,
+          };
+
+        case "raw":
+          // Raw page content for debugging
+          const rawContent = await page.content();
+          return {
+            ...response,
+            rawHtml: rawContent,
+          };
+
+        case "structured":
+        default:
+          return response;
+      }
+    } catch (error) {
+      console.error("DuckDuckGo search error:", error);
+
+      // Take screenshot for debugging if page exists
+      if (page) {
+        try {
+          await page.screenshot({
+            path: `duckduckgo_error_${Date.now()}.png`,
+            fullPage: true,
+          });
+        } catch (screenshotError) {
+          console.error("Failed to take error screenshot:", screenshotError);
         }
       }
-      throw new Error(`Failed to navigate to ${link}: ${error}`);
-    }
-  },
-  {
-    name: "smartGo",
-    description:
-      "Navigate to a URL with fallback Google search if the URL fails",
-    schema: z.object({
-      link: z.string(),
-      fallbackSearch: z
-        .string()
-        .optional()
-        .describe("Search query to use if direct navigation fails"),
-    }),
-  }
-);
 
-const click = tool(
-  async ({ selector }: { selector: string }): Promise<string> => {
-    const page = await getSharedPage();
-    if (!page) throw new Error("No page found");
-
-    try {
-      await page.waitForSelector(selector, { timeout: 10000 });
-      await page.click(selector);
-      await delay(1000);
-      return `Successfully clicked: ${selector}`;
-    } catch (error) {
-      throw new Error(`Failed to click ${selector}: ${error}`);
-    }
-  },
-  {
-    name: "click",
-    description: "Click an element by CSS/XPath selector",
-    schema: z.object({ selector: z.string() }),
-  }
-);
-
-const scroll = tool(
-  async ({
-    direction,
-    px,
-  }: {
-    direction: "up" | "down";
-    px: number;
-  }): Promise<string> => {
-    const page = await getSharedPage();
-    if (!page) throw new Error("No page found");
-
-    await page.evaluate(
-      ({ direction, px }) =>
-        window.scrollBy(0, direction === "down" ? px : -px),
-      { direction, px }
-    );
-
-    await delay(500);
-    return `Scrolled ${direction} by ${px}px`;
-  },
-  {
-    name: "scroll",
-    description: "Scroll up/down by pixels",
-    schema: z.object({
-      direction: z.enum(["up", "down"]),
-      px: z.number(),
-    }),
-  }
-);
-
-const input = tool(
-  async ({
-    selector,
-    value,
-  }: {
-    selector: string;
-    value: string;
-  }): Promise<string> => {
-    const page = await getSharedPage();
-    if (!page) throw new Error("No page found");
-
-    try {
-      await page.waitForSelector(selector, { timeout: 10000 });
-      await page.click(selector);
-      await page.keyboard.down("Control");
-      await page.keyboard.press("a");
-      await page.keyboard.up("Control");
-      await page.type(selector, value);
-      return `Successfully typed "${value}" into ${selector}`;
-    } catch (error) {
-      throw new Error(`Failed to input text into ${selector}: ${error}`);
-    }
-  },
-  {
-    name: "input",
-    description: "Type a value into an input field",
-    schema: z.object({
-      selector: z.string(),
-      value: z.string(),
-    }),
-  }
-);
-
-const getStructuredData = tool(
-  async (): Promise<string> => {
-    const page = await getSharedPage();
-    if (!page) throw new Error("No page found");
-
-    try {
-      const structuredData = await page.evaluate(() => {
-        const data: any = {
-          title: document.title,
-          url: window.location.href,
-          timestamp: new Date().toISOString(),
-          meta: {},
-          headings: [],
-          links: [],
-          images: [],
-          text_content: "",
-        };
-
-        // Get meta tags
-        const metaTags = document.querySelectorAll("meta");
-        metaTags.forEach((meta) => {
-          const name =
-            meta.getAttribute("name") || meta.getAttribute("property");
-          const content = meta.getAttribute("content");
-          if (name && content) {
-            data.meta[name] = content;
-          }
-        });
-
-        // Get headings
-        const headings = document.querySelectorAll("h1, h2, h3, h4, h5, h6");
-        headings.forEach((heading) => {
-          data.headings.push({
-            level: heading.tagName.toLowerCase(),
-            text: heading.textContent?.trim() || "",
-          });
-        });
-
-        // Get links (limited to first 20)
-        const links = document.querySelectorAll("a[href]");
-        Array.from(links)
-          .slice(0, 20)
-          .forEach((link) => {
-            const href = link.getAttribute("href");
-            const text = link.textContent?.trim();
-            if (href && text) {
-              data.links.push({ href, text });
-            }
-          });
-
-        // Get images (limited to first 10)
-        const images = document.querySelectorAll("img[src]");
-        Array.from(images)
-          .slice(0, 10)
-          .forEach((img) => {
-            const src = img.getAttribute("src");
-            const alt = img.getAttribute("alt");
-            if (src) {
-              data.images.push({ src, alt: alt || "" });
-            }
-          });
-
-        // Get main text content
-        const body = document.body;
-        if (body) {
-          const scripts = body.querySelectorAll("script, style, noscript");
-          scripts.forEach((el) => el.remove());
-          data.text_content = body.innerText || body.textContent || "";
+      throw new Error(`DuckDuckGo search failed: ${(error as Error).message}`);
+    } finally {
+      // Ensure page is closed to prevent memory leaks
+      if (page) {
+        try {
+          await page.close();
+        } catch (closeError) {
+          console.error("Failed to close page:", closeError);
         }
-
-        return data;
-      });
-
-      return JSON.stringify(structuredData, null, 2);
-    } catch (error) {
-      throw new Error(`Failed to get structured data: ${error}`);
+      }
     }
   },
   {
-    name: "getStructuredData",
-    description: "Extract structured data from the page in JSON format",
-    schema: z.object({}),
-  }
-);
-
-const getPageInfo = tool(
-  async (): Promise<string> => {
-    const page = await getSharedPage();
-    if (!page) throw new Error("No page found");
-
-    const info = await page.evaluate(() => {
-      return {
-        title: document.title,
-        url: window.location.href,
-        readyState: document.readyState,
-        bodyExists: !!document.body,
-        bodyChildCount: document.body ? document.body.children.length : 0,
-        textLength: document.body
-          ? (document.body.textContent || "").length
-          : 0,
-      };
-    });
-
-    return JSON.stringify(info, null, 2);
-  },
-  {
-    name: "getPageInfo",
-    description: "Get basic information about the current page",
-    schema: z.object({}),
-  }
-);
-
-const goBack = tool(
-  async (): Promise<string> => {
-    const page = await getSharedPage();
-    if (!page) throw new Error("No page found");
-    await page.goBack({ waitUntil: "networkidle2" });
-    await delay(1000);
-    return "Successfully went back to previous page";
-  },
-  {
-    name: "goBack",
-    description: "Go back to the previous page",
-    schema: z.object({}),
-  }
-);
-
-const wait = tool(
-  async ({ ms }: { ms: number }): Promise<string> => {
-    await delay(ms);
-    return `Waited ${ms}ms`;
-  },
-  {
-    name: "wait",
-    description: "Wait for a given number of milliseconds",
-    schema: z.object({ ms: z.number() }),
-  }
-);
-
-//scrape link and and retrun all the related url
-const scrapeLink = tool(
-  async ({ link }: { link: string }): Promise<string> => {
-    try {
-      const scrapingResults = await getInternalLinksAndScrap(link, {
-        maxInternalPages: 10,
-        concurrency: 2,
-        includeExternalLinks: false,
-      });
-
-      return JSON.stringify(
-        {
-          sourceUrl: link,
-          totalUrls: scrapingResults.links.internalLinks.length,
-          internalUrls: scrapingResults.links.internalLinks,
-          externalUrls: scrapingResults.links.externalLinks,
-          pagesData: scrapingResults.body,
-        },
-        null,
-        2
-      );
-    } catch (error) {
-      return JSON.stringify(
-        {
-          error:
-            error instanceof Error ? error.message : "Failed to scrape link",
-          sourceUrl: link,
-          urls: [],
-          pagesData: [],
-        },
-        null,
-        2
-      );
-    }
-  },
-  {
-    name: "scrapeLink",
-    description: "Scrape a link and return a simple list of all related URLs",
+    name: "duckDuckGoSearch",
+    description:
+      "Search DuckDuckGo with enhanced error handling, multiple output formats, and robust result extraction",
     schema: z.object({
-      link: z.string().url("Must be a valid URL"),
+      query: z.string().describe("Search query to send to DuckDuckGo"),
+      limit: z
+        .number()
+        .optional()
+        .default(10)
+        .describe("Maximum number of results to return (default: 10)"),
+      returnFormat: z
+        .enum(["structured", "text", "raw"])
+        .optional()
+        .default("structured")
+        .describe(
+          "Output format: structured (JSON), text (LLM-friendly), or raw (with HTML)"
+        ),
     }),
   }
 );
 
+const extractStructuredData = tool(
+  async ({ content }: { content: string }) => {
+    try {
+      //use llm to get the strucutred and relevant data
+      const result = await summaryModel.invoke(
+        [
+          {
+            role: "system",
+            content: `You are a helpful assistant that extracts structured data from HTML content with titles, links, snippets, and metadata.`,
+          },
+          {
+            role: "user",
+            content: content,
+          },
+        ],
+        {
+          response_format: {
+            type: "json_object",
+          },
+        }
+      );
+      const data =
+        typeof result.content === "string"
+          ? JSON.parse(result.content)
+          : result.content;
+      return data;
+    } catch (error) {
+      console.error("Extract structured data error:", error);
+      throw error;
+    }
+  },
+  {
+    name: "extractStructuredData",
+    description:
+      "Extract structured data from HTML content with titles, links, snippets, and metadata",
+    schema: z.object({
+      content: z
+        .string()
+        .describe("HTML content to extract structured data from"),
+    }),
+  }
+);
 // --- AGENT SETUP ---
 
 const agent = createReactAgent({
   llm: functionModel,
-  tools: [
-    go,
-    smartGo,
-    googleSearch,
-    click,
-    scroll,
-    input,
-    getStructuredData,
-    getPageInfo,
-    goBack,
-    wait,
-    scrapeLink,
-  ],
+  tools: [getWebsiteContent, botHandler, duckDuckGoSearch],
   checkpointer: new MemorySaver(),
 });
 
@@ -597,7 +417,7 @@ export const scrapper = async (messages: string) => {
       }
     );
     return result.messages;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Scraper error:", error);
     throw error;
   }

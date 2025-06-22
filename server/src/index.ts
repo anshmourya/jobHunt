@@ -275,14 +275,3 @@ app.listen(PORT, () => {
   });
   console.log(`Server is running on port ${PORT}`);
 });
-
-// scrapper("find HR email of levitation").then((res) => {
-//   console.log(res);
-// });
-
-//search on linkedin for levitation
-// getStealthPage(true).then((page) => {
-//   navigateWithStealth(page!, "https://linkedin.com").then((res) => {
-//     console.log(res);
-//   });
-// });

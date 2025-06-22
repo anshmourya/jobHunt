@@ -376,3 +376,33 @@ Focus on these specific issues and fix them accurately.
 
 Return only JSON
 `;
+
+export const botDetectionPrompt = `Analyze this HTML and identify bot detection bypass elements.
+
+Return JSON with this structure:
+{
+  "isBotDetection": boolean,
+  "clickableElement": {
+    "selector": "CSS selector or null",
+    "type": "button|checkbox|link|other",
+    "confidence": number (0-1)
+  },
+  "detectionType": "cloudflare|captcha|recaptcha|custom|unknown",
+  "reasoning": "brief explanation"
+}
+
+Look for:
+- "Verify you are human" buttons
+- Cloudflare challenge buttons
+- reCAPTCHA elements (especially checkboxes with "I'm not a robot")
+- "I'm not a robot" checkboxes
+- "Continue" or "Proceed" buttons
+- Elements with class names containing "recaptcha", "captcha", "challenge"
+
+For reCAPTCHA, look for:
+- iframe elements with src containing "recaptcha"
+- divs with class "g-recaptcha" or "recaptcha-checkbox"
+- checkbox elements within recaptcha containers
+
+HTML content (truncated to first 8000 chars):
+PROMT_CONTENT`;

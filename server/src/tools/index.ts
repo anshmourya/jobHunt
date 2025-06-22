@@ -3,7 +3,7 @@ import { task, entrypoint } from "@langchain/langgraph";
 import Job from "../models/job";
 import puppeteer from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
-import {executablePath} from "puppeteer";
+import { executablePath } from "puppeteer";
 import pino from "pino";
 import {
   aggregatePrompt,
@@ -26,7 +26,7 @@ export async function getBrowser() {
     sharedBrowser = await puppeteer.launch({
       headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
-      executablePath: executablePath()
+      executablePath: executablePath(),
     });
   }
   return sharedBrowser;
