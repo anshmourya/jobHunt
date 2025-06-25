@@ -24,7 +24,8 @@ export async function getBrowser() {
   if (!sharedBrowser) {
     puppeteer.use(StealthPlugin());
     sharedBrowser = await puppeteer.launch({
-      headless: true,
+      headless: false,
+      slowMo: 50,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
       executablePath: executablePath(),
     });

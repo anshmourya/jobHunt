@@ -33,6 +33,8 @@ import userRoutes from "./routes/user";
 import { scrapper } from "./tools/scrapper";
 import { emailBuilder } from "./tools/email";
 import { getStealthPage, navigateWithStealth } from "./browser";
+import { agentQL, linkedin } from "./tools/linkedin";
+
 app.use("/v1/users", userRoutes);
 
 const PORT = process.env.PORT ?? 5001;
@@ -275,3 +277,11 @@ app.listen(PORT, () => {
   });
   console.log(`Server is running on port ${PORT}`);
 });
+
+// linkedin("search for software enginer job").then((res) => {
+//   console.log("linkedin ops completed", res);
+// });
+
+// agentQL("search for software engineer job").then((res) => {
+//   console.log("linkedin ops completed", res);
+// });
