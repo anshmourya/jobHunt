@@ -6,12 +6,14 @@ import {
   getVisionCompletion,
   summaryModel,
   functionModel,
+  semanticSearch,
 } from "../config/ollama";
 import { BaseMessage, HumanMessage, AIMessage } from "@langchain/core/messages";
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { MemorySaver } from "@langchain/langgraph";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
+import axios from "axios";
 
 const COOKIE_PATH = path.resolve(__dirname, "../linkedin-cookies.json");
 const LOGIN_TIMEOUT = 120000;
@@ -29,25 +31,17 @@ interface AgentState {
 }
 
 interface ElementMeta {
-  tagName: string | null;
-  id: string | null;
-  className: string | null;
-  textContent: string | null;
-  placeholder: string | null;
-  type: string | null;
-  value: string | null;
-  href: string | null;
-  src: string | null;
-  alt: string | null;
-  title: string | null;
-  role: string | null;
-  ariaLabel: string | null;
-  dataTestId: string | null;
-  position: number[];
+  tag: string;
+  placeholder: string;
+  id: string;
+  class: string;
+  type: string;
+  text: string;
+  purpose: string;
+  reasoning: string;
+  position: string;
   visible: boolean;
-  xpath: string | null;
-  cssSelector: string | null;
-  index: number;
+  confidence: number;
 }
 
 // Tool Schemas
@@ -156,137 +150,158 @@ Instructions:
   }
 }
 
-async function extractPageInformation(page: Page, context = null) {
-  const title = await page.title();
-  const url = page.url();
+export async function generateElementEmbeddings(page: Page) {
+  const pageInfo = await extractPageInformation(page);
+  const BATCH_SIZE = 100;
+  const BASE_URL = "https://api.jina.ai/v1/embeddings";
+  const API_KEY =
+    "jina_1a71f3d9e22f4929914af2b127c8fd3eX9w0iEhb3nz5dBz1FZWEZ7_FiZl2";
 
-  const domInfo = await page.evaluate(() => {
-    const elements: any[] = [];
-    const walker = document.createTreeWalker(
-      document.body,
-      NodeFilter.SHOW_ELEMENT,
+  if (!API_KEY) {
+    throw new Error("JINA_API_KEY not set in environment variables.");
+  }
+
+  // Step 1: Build descriptions
+  const elementDescriptions = pageInfo.elements.map(
+    (el: any, index: number) => ({
+      index,
+      description: [
+        el.tagName,
+        el.id || "",
+        el.className || "",
+        el.textContent || el.placeholder || el.ariaLabel || el.alt || "",
+      ]
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim(),
+    })
+  );
+
+  // Step 2: Batch descriptions
+  const batches: (typeof elementDescriptions)[] = [];
+  for (let i = 0; i < elementDescriptions.length; i += BATCH_SIZE) {
+    batches.push(elementDescriptions.slice(i, i + BATCH_SIZE));
+  }
+
+  // Step 3: Send batches to Jina and collect embeddings
+  const allEmbeddings: { index: number; embedding: number[] }[] = [];
+
+  for (const batch of batches) {
+    const response = await axios.post(
+      BASE_URL,
       {
-        acceptNode: (node) => {
-          const el = node as HTMLElement;
-
-          const tag = el.tagName.toUpperCase();
-          const invisible =
-            el.offsetParent === null ||
-            window.getComputedStyle(el).display === "none";
-          const irrelevantTags = [
-            "SCRIPT",
-            "STYLE",
-            "NOSCRIPT",
-            "CODE",
-            "SVG",
-            "IMG",
-            "PATH",
-            "IFRAME",
-            "META",
-          ];
-
-          if (invisible || irrelevantTags.includes(tag)) {
-            return NodeFilter.FILTER_REJECT;
-          }
-
-          return NodeFilter.FILTER_ACCEPT;
+        model: "jina-embeddings-v4",
+        task: "text-matching",
+        input: batch.map((b) => ({ text: b.description })),
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+          "Content-Type": "application/json",
         },
       }
     );
 
-    let node: Element | null;
-    let index = 0;
+    const embeddings = response.data.data;
 
-    while ((node = walker.nextNode() as Element) && index < 500) {
-      const rect = node.getBoundingClientRect();
-      const style = window.getComputedStyle(node);
-
-      elements.push({
-        tagName: node.tagName.toLowerCase(),
-        id: node.id || null,
-        className: String(node.className || "")
-          .replace(/\s+/g, " ")
-          .trim(),
-        textContent: String(node.textContent || "")
-          .replace(/\s+/g, " ")
-          .trim()
-          .substring(0, 200),
-        placeholder: node.getAttribute("placeholder") || null,
-        type: node.getAttribute("type") || null,
-        value: node.getAttribute("value") || null,
-        href: node.getAttribute("href") || null,
-        src: node.getAttribute("src") || null,
-        alt: node.getAttribute("alt") || null,
-        title: node.getAttribute("title") || null,
-        role: node.getAttribute("role") || null,
-        ariaLabel: node.getAttribute("aria-label") || null,
-        dataTestId: node.getAttribute("data-testid") || null,
-        position: {
-          x: Math.round(rect.x),
-          y: Math.round(rect.y),
-          width: Math.round(rect.width),
-          height: Math.round(rect.height),
-        },
-        visible:
-          rect.width > 0 && rect.height > 0 && style.visibility !== "hidden",
-        xpath: getXPath(node),
-        cssSelector: generateCSSSelector(node),
-        index: index++,
+    embeddings.forEach((item: any, i: number) => {
+      allEmbeddings.push({
+        index: batch[i].index,
+        embedding: item.embedding,
       });
-    }
+    });
+  }
 
-    return elements;
+  // Step 4: Attach embeddings to elements
+  for (const { index, embedding } of allEmbeddings) {
+    pageInfo.elements[index].embedding = embedding;
+  }
 
-    function getXPath(element: Element): string {
-      if (element.id) return `//*[@id='${element.id}']`;
+  console.log(`✅ Embedded ${allEmbeddings.length} elements`);
+  return pageInfo; // in case you want the enriched object back
+}
 
-      let xpath = "";
-      let current = element;
-
-      while (current && current.nodeType === Node.ELEMENT_NODE) {
-        let index = 1;
-        let sibling = current.previousSibling;
-
-        while (sibling) {
-          if (
-            sibling.nodeType === Node.ELEMENT_NODE &&
-            "tagName" in sibling &&
-            sibling.tagName === current.tagName
-          ) {
-            index++;
-          }
-          sibling = sibling.previousSibling;
-        }
-
-        xpath = `/${current.tagName.toLowerCase()}[${index}]${xpath}`;
-        current = current.parentNode as Element;
-      }
-
-      return xpath;
-    }
-
-    function generateCSSSelector(element: Element): string {
-      if (element.id) return `#${element.id}`;
-
-      let selector = element.tagName.toLowerCase();
-      const className = element.getAttribute("class");
-
-      if (className) {
-        const classes = className.trim().split(/\s+/).filter(Boolean);
-        if (classes.length > 0) {
-          selector += "." + classes.join(".");
-        }
-      }
-
-      return selector;
-    }
+async function extractPageInformation(page: Page, maxResults = 1, query = "") {
+  const title = await page.title();
+  const url = page.url();
+  const minimalHTML = await page.evaluate(() => {
+    return Array.from(
+      document.querySelectorAll("input, button, a, label, textarea, select")
+    )
+      .map((el) => el.outerHTML)
+      .join("\n");
   });
+  const screenshot = await page.screenshot({
+    fullPage: true,
+    encoding: "base64",
+    type: "jpeg",
+  });
+
+  //AI approach
+  const visionResponse = await getVisionCompletion([
+    {
+      role: "system",
+      content: `
+You are an intelligent web automation assistant.
+
+Your goal is to **identify exactly ONE most relevant** UI element based on the user’s query, screenshot, and HTML. Only return that one element that best satisfies the user's intent.
+
+Follow these rules strictly:
+1. Return only ONE element in the JSON array.
+2. The element must be visible, interactive (input, button, link, etc.), and relevant to the query.
+3. If multiple elements seem equally relevant, choose the most semantically specific one (e.g., an input field over a label).
+4. Rank and return only the **highest confidence match**.
+5. Ignore elements unrelated to the user's query (even if prominent).
+
+Output Format (only ${String(maxResults)} item in array):
+
+[
+  {
+    "tag": "input | button | a | textarea | checkbox | select | image | div | other",
+    "placeholder": "placeholder text if present",
+    "alt": "alt text if present",
+    "text": "visible text or label",
+    "id": "element id if present",
+    "class": "class string if present",
+    "type": "type attribute (e.g., 'text', 'submit') if applicable",
+    "purpose": "semantic role like 'search_bar', 'email_input', 'submit_button'",
+    "reasoning": "why you selected this as the best match for the user’s goal",
+    "position": "top-left, top-right, center, etc.",
+    "visible": true | false,
+    "confidence": 0.0 to 1.0
+  }
+]
+
+DO NOT include any other elements. DO NOT return explanation outside the JSON.
+`,
+    },
+    {
+      role: "user",
+      content: [
+        {
+          type: "image_url",
+          image_url: { url: `data:image/jpeg;base64,${screenshot}` },
+        },
+        {
+          type: "text",
+          text: minimalHTML,
+        },
+        {
+          type: "text",
+          text: query,
+        },
+      ],
+    },
+  ]);
+
+  const result = JSON.parse(visionResponse.choices[0].message.content || "{}");
 
   return {
     title,
     url,
-    elements: domInfo,
-    context: context || `Web page: ${title}`,
+    html: minimalHTML,
+    screenshot,
+    elements: result,
   };
 }
 
@@ -295,19 +310,18 @@ export async function resolvePuppeteerElement(
   element: ElementMeta
 ) {
   if (element.id) {
+    console.log("Element id:", element.id);
     return page.locator(`#${element.id}`);
   }
 
-  if (element.cssSelector) {
-    return page.locator(element.cssSelector);
+  if (element.class) {
+    console.log("Element class:", element.class);
+    return page.locator(element.class);
   }
 
-  if (element.xpath) {
-    return page.locator(`xpath=${element.xpath}`);
-  }
-
-  if (element.textContent) {
-    return page.locator(element.textContent);
+  if (element.text) {
+    console.log("Element text:", element.text);
+    return page.locator(element.text);
   }
 
   throw new Error("No valid selector found for element.");
@@ -318,6 +332,7 @@ export async function performAction(
   query: string,
   elementMeta: ElementMeta
 ) {
+  console.log("Element metadata:", elementMeta);
   // Resolve the Puppeteer element using your resolver
   const locator = await resolvePuppeteerElement(page, elementMeta);
   if (!locator) throw new Error("Could not resolve element on the page.");
@@ -382,6 +397,8 @@ Only return a **single JSON object** relevant to the element metadata.
   console.log("AI Result:", result);
 
   if (!actionType) throw new Error("No action type found from AI response.");
+
+  console.log(locator);
 
   if (actionType === "click") {
     await locator.click();
@@ -808,6 +825,32 @@ EXAMPLES:
   }
 );
 
+const cosineSimilarity = (
+  embeddings: number[][],
+  queryEmbeddings: number[]
+) => {
+  const dotProduct = embeddings.reduce(
+    (sum, embedding, index) =>
+      sum +
+      embedding.reduce((dot, value, i) => dot + value * queryEmbeddings[i], 0),
+    0
+  );
+
+  const queryMagnitude = Math.sqrt(
+    queryEmbeddings.reduce((sum, value) => sum + value * value, 0)
+  );
+
+  const embeddingsMagnitude = Math.sqrt(
+    embeddings.reduce(
+      (sum, embedding) =>
+        sum + embedding.reduce((dot, value) => dot + value * value, 0),
+      0
+    )
+  );
+
+  return dotProduct / (queryMagnitude * embeddingsMagnitude);
+};
+
 export async function agentQL(query: string, options: any = {}) {
   try {
     const page = await getPage();
@@ -829,21 +872,28 @@ export async function agentQL(query: string, options: any = {}) {
     } = options;
 
     // Step 1: Get page structure and content
-    const pageInfo = await extractPageInformation(page, context);
+    const pageInfo = await extractPageInformation(page, 1, query);
+    // const pageInfoWithEmbeddings = await generateElementEmbeddings(page);
 
-    console.log(JSON.stringify(pageInfo, null, 2));
+    // const semanticSearchResults = await semanticSearch(
+    //   query,
+    //   pageInfo.elements,
+    //   1
+    // );
+
+    // console.log(JSON.stringify(semanticSearchResults, null, 2));
 
     // Step 2: Use AI to identify the target element
 
-    const elementInfo = await identifyElement(pageInfo, query, multiple);
+    // const elementInfo = await identifyElement(pageInfo, query, multiple);
 
-    console.log("AI matched element:", elementInfo);
-    if (Array.isArray(elementInfo.elements)) {
-      for (const element of elementInfo.elements) {
+    // console.log("AI matched element:", elementInfo);
+    if (Array.isArray(pageInfo.elements)) {
+      for (const element of pageInfo.elements) {
         await performAction(page, query, element);
       }
     } else {
-      await performAction(page, query, elementInfo.elements);
+      await performAction(page, query, pageInfo.elements);
     }
 
     return { success: true, message: "Action performed successfully" };

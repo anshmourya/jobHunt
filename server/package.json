@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@clerk/express": "^1.6.0",
+    "@huggingface/transformers": "^3.5.2",
     "@langchain/anthropic": "^0.3.20",
     "@langchain/community": "^0.3.43",
     "@langchain/core": "^0.3.59",

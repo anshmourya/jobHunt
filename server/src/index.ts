@@ -282,6 +282,6 @@ app.listen(PORT, () => {
 //   console.log("linkedin ops completed", res);
 // });
 
-// agentQL("search for software engineer job").then((res) => {
-//   console.log("linkedin ops completed", res);
-// });
+agentQL("search for software engineer job").then((res) => {
+  console.log("linkedin ops completed", res);
+});
