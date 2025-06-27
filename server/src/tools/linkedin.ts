@@ -315,8 +315,9 @@ export async function resolvePuppeteerElement(
   }
 
   if (element.class) {
-    console.log("Element class:", element.class);
-    return page.locator(element.class);
+    const classSelector =
+      "." + element.class.split(/\s+/).filter(Boolean).join(".");
+    return page.locator(classSelector);
   }
 
   if (element.text) {
