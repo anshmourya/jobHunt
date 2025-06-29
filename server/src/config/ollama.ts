@@ -85,8 +85,6 @@ async function semanticSearch(query: string, documents: Document[], topK = 5) {
     model.embedQuery(query),
   ]);
 
-  console.log(docEmbeddings, queryEmbedding);
-
   const scoredResults = texts.map((text, i) => ({
     text,
     similarity: cosineSimilarity(docEmbeddings[i], queryEmbedding),

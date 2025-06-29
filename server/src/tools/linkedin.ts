@@ -14,6 +14,7 @@ import { z } from "zod";
 import { MemorySaver } from "@langchain/langgraph";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import axios from "axios";
+import { ChatPromptTemplate } from "@langchain/core/prompts";
 
 const COOKIE_PATH = path.resolve(__dirname, "../linkedin-cookies.json");
 const LOGIN_TIMEOUT = 120000;
@@ -41,6 +42,8 @@ interface ElementMeta {
   reasoning: string;
   position: string;
   visible: boolean;
+  ariaLabel: string;
+  role: string;
   confidence: number;
 }
 
@@ -235,8 +238,13 @@ async function extractPageInformation(page: Page, maxResults = 1, query = "") {
     fullPage: true,
     encoding: "base64",
     type: "jpeg",
+    quality: 70,
   });
 
+  await fs.writeFile(
+    path.join("temp", "minimalHTML.json"),
+    JSON.stringify(minimalHTML)
+  );
   //AI approach
   const visionResponse = await getVisionCompletion([
     {
@@ -257,21 +265,19 @@ Output Format (only ${String(maxResults)} item in array):
 
 [
   {
-    "tag": "input | button | a | textarea | checkbox | select | image | div | other",
-    "placeholder": "placeholder text if present",
-    "alt": "alt text if present",
-    "text": "visible text or label",
-    "id": "element id if present",
-    "class": "class string if present",
-    "type": "type attribute (e.g., 'text', 'submit') if applicable",
-    "purpose": "semantic role like 'search_bar', 'email_input', 'submit_button'",
-    "reasoning": "why you selected this as the best match for the user’s goal",
-    "position": "top-left, top-right, center, etc.",
-    "visible": true | false,
-    "confidence": 0.0 to 1.0
+  "tag": "button|input|a|div|span",
+  "text": "visible text content",
+  "id": "element id if present",
+  "class": "css classes if present", 
+  "ariaLabel": "aria-label if present",
+  "role": "role attribute if present",
+  "position": {"x": 100, "y": 200},
+  "confidence": 0.95,
+  "actionType": "click|type|hover",
+  "reasoning": "why this element matches the query"
   }
 ]
-
+Focus on interactive elements that are clearly visible and relevant to the query.
 DO NOT include any other elements. DO NOT return explanation outside the JSON.
 `,
     },
@@ -320,9 +326,15 @@ export async function resolvePuppeteerElement(
     return page.locator(classSelector);
   }
 
+  if (element.ariaLabel) {
+    console.log("Element aria-label:", element.ariaLabel);
+    return page.locator(`[aria-label="${element.ariaLabel}"]`);
+  }
+
   if (element.text) {
-    console.log("Element text:", element.text);
-    return page.locator(element.text);
+    const xpath = `//*[contains(text(), "${element.text}")]`;
+    console.log("Using XPath:", xpath);
+    return page.locator(`xpath=${xpath}`);
   }
 
   throw new Error("No valid selector found for element.");
@@ -759,7 +771,7 @@ export const saveSessionTool = tool(
   }
 );
 
-const searchQueryPreprationTool = tool(
+const searchQueryPreparationTool = tool(
   async ({ query }) => {
     try {
       //check if logged in
@@ -852,87 +864,238 @@ const cosineSimilarity = (
   return dotProduct / (queryMagnitude * embeddingsMagnitude);
 };
 
-export async function agentQL(query: string, options: any = {}) {
-  try {
-    const page = await getPage();
-    //goto linkden login page
-    // await page.goto("https://www.linkedin.com/login", {
-    //   waitUntil: "domcontentloaded",
-    //   timeout: NAVIGATION_TIMEOUT,
-    // });
+const agentQL = tool(
+  async ({ query }: { query: string }) => {
+    try {
+      const page = await getPage();
 
-    if (!(await isLoggedIn(page))) {
-      await loginToLinkedInTool.invoke({});
-    }
-
-    const {
-      timeout = 30000,
-      waitForVisible = true,
-      multiple = true,
-      context = null,
-    } = options;
-
-    // Step 1: Get page structure and content
-    const pageInfo = await extractPageInformation(page, 1, query);
-    // const pageInfoWithEmbeddings = await generateElementEmbeddings(page);
-
-    // const semanticSearchResults = await semanticSearch(
-    //   query,
-    //   pageInfo.elements,
-    //   1
-    // );
-
-    // console.log(JSON.stringify(semanticSearchResults, null, 2));
-
-    // Step 2: Use AI to identify the target element
-
-    // const elementInfo = await identifyElement(pageInfo, query, multiple);
-
-    // console.log("AI matched element:", elementInfo);
-    if (Array.isArray(pageInfo.elements)) {
-      for (const element of pageInfo.elements) {
-        await performAction(page, query, element);
+      if (!(await isLoggedIn(page))) {
+        await loginToLinkedInTool.invoke({});
       }
-    } else {
-      await performAction(page, query, pageInfo.elements);
-    }
 
-    return { success: true, message: "Action performed successfully" };
-  } catch (error: any) {
-    //page screenshot
-    await page.screenshot({ path: "error.png" });
-    throw new Error(`AgentQL failed: ${error.message}`);
+      await navigateToUrlTool.invoke({
+        url: "https://www.linkedin.com/search/results/people/?keywords=ansh%20mourya&origin=SWITCH_SEARCH_VERTICAL&sid=xky",
+      });
+
+      // Step 1: Get page structure and content
+      const pageInfo = await extractPageInformation(page, 1, query);
+
+      // const pageInfoWithEmbeddings = await generateElementEmbeddings(page);
+
+      // const semanticSearchResults = await semanticSearch(
+      //   query,
+      //   pageInfo.elements,
+      //   1
+      // );
+
+      // console.log(JSON.stringify(semanticSearchResults, null, 2));
+
+      // Step 2: Use AI to identify the target element
+
+      // const elementInfo = await identifyElement(pageInfo, query, multiple);
+
+      // console.log("AI matched element:", elementInfo);
+      if (Array.isArray(pageInfo.elements)) {
+        for (const element of pageInfo.elements) {
+          await performAction(page, query, element);
+        }
+      } else {
+        await performAction(page, query, pageInfo.elements);
+      }
+
+      return { success: true, message: "Action performed successfully" };
+    } catch (error: any) {
+      //page screenshot
+      await page.screenshot({ path: "error.png" });
+      throw new Error(`AgentQL failed: ${error.message}`);
+    }
+  },
+  {
+    name: "agentQL",
+    description: "Perform actions on LinkedIn based on the given query",
+    schema: z.object({
+      query: z.string(),
+    }),
   }
-}
+);
 
 //--- AGENT SETUP ---
 
-const agent = createReactAgent({
-  llm: functionModel,
-  tools: [
+type ConversationItem =
+  | { type: "user"; user: string }
+  | { type: "plan"; system: string }
+  | { type: "action"; tool: string; input: any }
+  | { type: "observe"; tool: string; output: any }
+  | { type: "output"; system: string };
+
+const tools = [
+  initializePageTool,
+  loginToLinkedInTool,
+  searchTool,
+  navigateToUrlTool,
+  searchQueryPreparationTool, // Fixed typo
+  saveSessionTool,
+  agentQL,
+];
+const SYSTEM_MESSAGE = `You are a LinkedIn automation agent. Your job is to perform actions on LinkedIn to fulfill the user's query.
+
+🌀 Follow this loop until the task is complete:
+START → PLAN → ACTION → OBSERVE → (repeat PLAN → ACTION → OBSERVE as needed) → OUTPUT
+
+---
+
+Available tools:
+- initializePageTool: Initialize a browser page for LinkedIn automation
+- loginToLinkedInTool: Login to LinkedIn
+- searchQueryPreparationTool: Optimize search query and return a LinkedIn search URL
+- searchTool: Search LinkedIn for people, companies, or content
+- navigateToUrlTool: Navigate to a specific LinkedIn URL
+- agentQL: Perform precise UI actions (e.g., click, type)
+- saveSessionTool: Save current session state
+
+---
+
+RESPONSE TYPES:
+1. PLAN: { "type": "plan", "reasoning": "why this step is needed" }
+2. ACTION: { "type": "action", "tool": "tool_name", "input": "tool_input" }
+3. OUTPUT: { "type": "output", "message": "completion message" }
+
+WORKFLOW RULES:
+- Start with PLAN, then immediately follow with ACTION
+- After each ACTION, wait for OBSERVE, then decide next step
+- Always begin workflow with: initializePageTool → loginToLinkedInTool
+- Use searchQueryPreparationTool before searching
+- Each step must be a single JSON object
+- If task is complete, return OUTPUT type
+
+IMPORTANT: 
+- If you just returned a PLAN, your next response MUST be an ACTION
+- If you received an OBSERVE, decide if you need another PLAN→ACTION or OUTPUT
+- Only output the NEXT step, not the entire workflow
+
+Current conversation state: {{CONVERSATION_HISTORY}}
+What is the next step?`;
+
+export const linkedin = async (query: string) => {
+  try {
+    if (!query || query.trim() === "") {
+      throw new Error("Query cannot be empty");
+    }
+
+    let conversationHistory: ConversationItem[] = [
+      { type: "user", user: query },
+    ];
+
+    let maxIterations = 20;
+    let iteration = 0;
+    let lastStepType: "plan" | "action" | "observe" | null = null;
+
+    while (iteration < maxIterations) {
+      iteration++;
+
+      // Create context-aware prompt
+      const systemPrompt = SYSTEM_MESSAGE.replace(
+        "{{CONVERSATION_HISTORY}}",
+        JSON.stringify(conversationHistory.slice(-5)) // Last 5 steps for context
+      );
+
+      const response = await functionModel.invoke([
+        {
+          role: "system",
+          content: systemPrompt,
+        },
+        {
+          role: "user",
+          content: `Last step type: ${lastStepType}. What should happen next?`,
+        },
+      ]);
+
+      let nextStep =
+        typeof response.content === "string"
+          ? JSON.parse(response.content)
+          : response.content;
+
+      console.log("nextStep", nextStep);
+      console.log(`Step ${iteration}:`, nextStep);
+
+      // Handle PLAN
+      if (nextStep.type === "plan") {
+        conversationHistory.push(nextStep);
+        lastStepType = "plan";
+        console.log(`📋 Plan: ${nextStep.reasoning}`);
+        continue;
+      }
+
+      // Handle ACTION
+      if (nextStep.type === "action") {
+        conversationHistory.push(nextStep);
+        lastStepType = "action";
+        console.log(`🔧 Action: ${nextStep.tool}`);
+
+        try {
+          const toolResult = await runTool(nextStep.tool, nextStep.input);
+          const observeStep: ConversationItem = {
+            type: "observe",
+            tool: nextStep.tool,
+            output: toolResult,
+          };
+          conversationHistory.push(observeStep);
+          lastStepType = "observe";
+          console.log(`👁️ Observe: ${nextStep.tool} ->`, toolResult);
+        } catch (toolError: any) {
+          const errorStep: ConversationItem = {
+            type: "observe",
+            tool: nextStep.tool,
+            output: `Error: ${toolError.message}`,
+          };
+          conversationHistory.push(errorStep);
+          lastStepType = "observe";
+          console.log(`❌ Error: ${nextStep.tool} ->`, toolError.message);
+        }
+        continue;
+      }
+
+      // Handle OUTPUT
+      if (nextStep.type === "output") {
+        console.log(`✅ Output: ${nextStep.message}`);
+        return {
+          success: true,
+          message: nextStep.message,
+          conversationHistory,
+        };
+      }
+
+      // Invalid step type
+      console.log("Invalid step type:", nextStep);
+      break;
+    }
+
+    return {
+      success: false,
+      message: "Max iterations reached",
+      conversationHistory,
+    };
+  } catch (error) {
+    console.error("LinkedIn agent error:", error);
+    throw error;
+  }
+};
+
+async function runTool(toolName, input) {
+  const tools = {
     initializePageTool,
     loginToLinkedInTool,
     searchTool,
     navigateToUrlTool,
-    searchQueryPreprationTool,
+    searchQueryPreparationTool,
+    agentQL,
     saveSessionTool,
-  ],
-  checkpointer: new MemorySaver(),
-});
+  };
 
-export const linkedin = async (messages: string) => {
-  try {
-    const result = await agent.invoke(
-      {
-        messages: [new HumanMessage(messages)],
-      },
-      {
-        configurable: { thread_id: "42" },
-      }
-    );
-    return result.messages;
-  } catch (error: unknown) {
-    console.error("Scraper error:", error);
-    throw error;
+  const tool = tools[toolName];
+  if (!tool) {
+    throw new Error(`Unknown tool: ${toolName}`);
   }
-};
+
+  return await tool.invoke(input);
+}

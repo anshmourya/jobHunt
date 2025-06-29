@@ -33,7 +33,7 @@ import userRoutes from "./routes/user";
 import { scrapper } from "./tools/scrapper";
 import { emailBuilder } from "./tools/email";
 import { getStealthPage, navigateWithStealth } from "./browser";
-import { agentQL, linkedin } from "./tools/linkedin";
+import { linkedin } from "./tools/linkedin";
 
 app.use("/v1/users", userRoutes);
 
@@ -270,18 +270,82 @@ app.post(
   }
 );
 
-app.listen(PORT, () => {
-  connectDB().then(() => {
-    console.log("MongoDB connected");
-    console.log("Keep-alive mechanism started");
-  });
-  console.log(`Server is running on port ${PORT}`);
-});
+// app.listen(PORT, () => {
+//   connectDB().then(() => {
+//     console.log("MongoDB connected");
+//     console.log("Keep-alive mechanism started");
+//   });
+//   console.log(`Server is running on port ${PORT}`);
+// });
 
-// linkedin("search for software enginer job").then((res) => {
+// agentQL(
+//   "click on the first person name ansh mourya and send the connection request"
+// ).then((res) => {
 //   console.log("linkedin ops completed", res);
 // });
 
-agentQL("search for software engineer job").then((res) => {
+linkedin(
+  "search for ansh mourya and open the profile page of first person"
+).then((res) => {
   console.log("linkedin ops completed", res);
 });
+
+//--- AGENT SETUP ---
+
+// const tools = [
+//   initializePageTool,
+//   loginToLinkedInTool,
+//   searchTool,
+//   navigateToUrlTool,
+//   searchQueryPreprationTool,
+//   saveSessionTool,
+//   // agentQL,
+//   retrunPageDataInMarkdownTool,
+// ];
+
+// export const linkedin = async (query: string) => {
+//   try {
+//     const SYSTEM_MESSAGE = `
+//     You are a LinkedIn automation agent. Your job is to perform actions on LinkedIn based on the given query.
+
+// Available tools:
+// - initializePageTool: Initialize a new browser page for LinkedIn automation
+// - loginToLinkedInTool: Login to LinkedIn with credentials
+// - searchTool: Search for people, companies, or content
+// - navigateToUrlTool: Navigate to a specific LinkedIn URL
+// - searchQueryPreparationTool: Prepare and optimize search queries
+// - saveSessionTool: Save current session state and data
+// - agentQL: Perform actions on LinkedIn based on the given query
+// - retrunPageDataInMarkdownTool: Return page data in markdown format
+
+//     Guidelines:
+// 1. Always initialize the page before performing any LinkedIn actions
+// 2. Use searchQueryPreparationTool to optimize queries before searching
+// 3. Handle errors gracefully and provide clear feedback
+// 4. Be respectful of LinkedIn's terms of service and rate limits
+
+// examples:
+// query: "search for people named Ansh Mourya and return results of first person"
+// output: initializePageTool() -> loginToLinkedInTool() -> searchQueryPreparationTool() -> searchTool() -> agentQL("click on first person name ansh mourya") -> retrunPageDataInMarkdownTool()
+//     `;
+
+//     const prompt = ChatPromptTemplate.fromMessages([
+//       ["system", SYSTEM_MESSAGE],
+//       ["human", "{query}"],
+//     ]);
+
+//     const agent = createReactAgent({
+//       llm: functionModel,
+//       tools,
+//       prompt,
+//     });
+
+//     const result = await agent.invoke({
+//       messages: [new HumanMessage(query)],
+//     });
+//     return result.messages;
+//   } catch (error: unknown) {
+//     console.error("Scraper error:", error);
+//     throw error;
+//   }
+// };
